@@ -1250,7 +1250,7 @@
               markdownContent = `[CONVERSION ERROR: Failed to render this section. Original content below]\n\n\`\`\`\n${msg.contentText}\n\`\`\`\n`;
             }
           }
-          content += markdownContent + "\n\n" + MARKDOWN_BACK_TO_TOP_LINK;
+          content += "\n\n###### AI said:\n\n" + markdownContent + "\n\n" + MARKDOWN_BACK_TO_TOP_LINK;
         }
       });
 

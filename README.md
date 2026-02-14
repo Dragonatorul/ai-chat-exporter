@@ -119,17 +119,23 @@ url: https://chatgpt.com/c/...
 
 > How does GPT-4 work?
 
+###### AI said:
+
 GPT-4 works by using a transformer-based architecture that processes and generates text based on large datasets.
 
 ### chat-2
 
 > Can GPT-4 answer any question?
 
+###### AI said:
+
 GPT-4 can answer a variety of questions, though it may not always provide perfect responses.
 
 ### chat-3
 
 > what's your chatgpt version
+
+###### AI said:
 
 You're currently chatting with **AI using GPT-4o**, which is the latest and most advanced model as of June 2025.
 
