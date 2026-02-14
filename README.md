@@ -1,8 +1,16 @@
-# ChatGPT-Claude-Copilot-Gemini AI Chat Exporter by RevivalStack (v2.7.1)
+# ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter by RevivalStack (v2.8.0)
 
-**ChatGPT-Claude-Copilot-Gemini AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from **ChatGPT**, **Claude**, **Copilot**, and **Google Gemini** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
+**ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from **ChatGPT**, **Claude**, **Copilot**, **Google Gemini**, and **Grok** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
 
-![ChatGPT-Claude-Copilot-Gemini AI Chat Exporter](images/chatgpt-gemini-ai-exporter.png)
+![ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter](images/chatgpt-gemini-ai-exporter.png)
+
+## What's New in v2.8.0?
+
+This version introduces support for the Grok platform and enhances thread handling for better export accuracy.
+
+- **Grok Support**: Full support for exporting chats from Grok, including automatic loading of all conversation threads (even if not visible in the UI) via API calls.
+- **Improved Thread Detection**: Threads in Grok conversations are now properly exported with clear separators, ensuring complete conversation history.
+- **Reliable Speaker Detection**: Enhanced logic for identifying user vs. AI messages across all platforms, with special handling for Grok's unique message structure.
 
 ## What's New in v2.7.0?
 
@@ -39,7 +47,7 @@ This version introduces significant enhancements focused on customization, outpu
 
 ## Features
 
-- **Cross-Platform Support**: Export conversations seamlessly from **ChatGPT**, **Claude**, **Copilot**, and **Google Gemini**.
+- **Cross-Platform Support**: Export conversations seamlessly from **ChatGPT**, **Claude**, **Copilot**, **Google Gemini**, and **Grok**.
 - **Markdown Conversion**: Converts your chat conversation into a properly and elegantly formatted Markdown, ensuring accurate rendering of text, code blocks, tables, and especially **correct newlines within list items**.
   - **Table of Contents (TOC)**: Automatically generates a TOC linking to each message pair (user question + AI response) within the Markdown export.
   - **Back to Top**: Allows quick navigation through a "Back to Top" link after each AI response in the Markdown export.
@@ -71,7 +79,7 @@ This version introduces significant enhancements focused on customization, outpu
 
     [Install UserScript (ai-chat-exporter.user.js)](https://raw.githubusercontent.com/revivalstack/chatgpt-exporter/refs/heads/main/ai-chat-exporter.user.js)
 
-3.  Navigate to any ChatGPT, Claude, Copilot, or Google Gemini conversation page.
+3.  Navigate to any ChatGPT, Claude, Copilot, Google Gemini, or Grok conversation page.
 4.  A floating "⬇ Export MD" and "⬇ JSON" button will appear at the bottom right of the page.
 5.  Click the desired button to download your conversation.
 
@@ -95,7 +103,7 @@ title: Chat with ChatGPT
 tags: [testchat, docs]
 author: chatgpt
 count: 3
-exporter: 2.5.0
+exporter: 2.8.0
 date: 2025-07-31T17-47-00+0800
 url: https://chatgpt.com/c/...
 ---
@@ -111,23 +119,17 @@ url: https://chatgpt.com/c/...
 
 > How does GPT-4 work?
 
-###### AI said:
-
 GPT-4 works by using a transformer-based architecture that processes and generates text based on large datasets.
 
 ### chat-2
 
 > Can GPT-4 answer any question?
 
-###### AI said:
-
 GPT-4 can answer a variety of questions, though it may not always provide perfect responses.
 
 ### chat-3
 
 > what's your chatgpt version
-
-###### AI said:
 
 You're currently chatting with **AI using GPT-4o**, which is the latest and most advanced model as of June 2025.
 
