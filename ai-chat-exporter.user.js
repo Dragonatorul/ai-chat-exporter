@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         ChatGPT / Claude / Copilot / Gemini AI Chat Exporter by RevivalStack
+// @name         ChatGPT / Claude / Copilot / Gemini / Grok AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.7.1
-// @description  Export your ChatGPT, Claude, Copilot or Gemini chat into a properly and elegantly formatted Markdown or JSON.
+// @version      2.8.0
+// @description  Export your ChatGPT, Claude, Copilot, Gemini or Grok chat into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
 // @license      MIT License
@@ -11,6 +11,8 @@
 // @match        https://claude.ai/*
 // @match        https://copilot.microsoft.com/*
 // @match        https://gemini.google.com/*
+// @match        https://grok.com/*
+// @match        https://x.com/i/grok*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // ==/UserScript==
@@ -19,7 +21,7 @@
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.7.1";
+  const EXPORTER_VERSION = "2.8.0";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const OUTLINE_CONTAINER_ID = "export-outline-container"; // ID for the outline div
   const DOM_READY_TIMEOUT = 1000;
@@ -250,6 +252,17 @@
   const COPILOT_USER_MESSAGE_SELECTOR = '[data-content="user-message"]';
   const COPILOT_BOT_MESSAGE_SELECTOR = '[data-content="ai-message"]';
 
+  const GROK = "grok";
+  const GROK_HOSTNAMES = ["grok.com", "x.com"];
+  const GROK_MESSAGE_SELECTOR = ".message-bubble";
+  const GROK_HUMAN_MESSAGE_CLASS = "bg-surface-l1";
+  const GROK_THINKING_SELECTOR = ".thinking-container";
+  const GROK_RESPONSE_SELECTOR = ".response-content-markdown";
+  const GROK_API_RESPONSE_NODE = (id) =>
+    `/rest/app-chat/conversations/${id}/response-node?includeThreads=true`;
+  const GROK_API_LOAD_RESPONSES = (id) =>
+    `/rest/app-chat/conversations/${id}/load-responses`;
+
   const HOSTNAME = window.location.hostname;
   const CURRENT_PLATFORM = (() => {
     if (CHATGPT_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
@@ -263,6 +276,9 @@
     }
     if (GEMINI_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
       return GEMINI;
+    }
+    if (GROK_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
+      return GROK;
     }
     return "unknown";
   })();
@@ -748,6 +764,357 @@
     },
 
     /**
+     * Extracts chat data from Grok's DOM structure.
+     * @param {Document} doc - The Document object.
+     * @returns {object|null} The standardized chat data, or null.
+     */
+    extractGrokChatData(doc) {
+      const root =
+        doc.querySelector("main") ||
+        doc.querySelector('[role="main"]') ||
+        doc;
+
+      const messageItems = [
+        ...root.querySelectorAll(GROK_MESSAGE_SELECTOR),
+      ].filter((el) => (el.textContent?.trim() || "").length > 5);
+
+      if (messageItems.length === 0) return null;
+
+      // Title extraction: sidebar link > page title > fallback
+      let rawTitle = DEFAULT_CHAT_TITLE;
+      const conversationId =
+        window.location.pathname.match(/\/c\/([^/?]+)/)?.[1] ||
+        new URLSearchParams(window.location.search).get("chat");
+
+      if (conversationId) {
+        const candidateLinks = doc.querySelectorAll(
+          `a[href*="/c/${conversationId}"]`
+        );
+        for (const link of candidateLinks) {
+          const text = link.textContent?.trim();
+          if (
+            text &&
+            text.length > 4 &&
+            text.length < 200 &&
+            !/^(chat|home|voice|imagine|projects?)$/i.test(text)
+          ) {
+            rawTitle = text;
+            break;
+          }
+        }
+      }
+
+      if (rawTitle === DEFAULT_CHAT_TITLE) {
+        const pageTitle = (doc.title || "")
+          .replace(/\s*[-|]\s*(Grok|X|Chat).*$/i, "")
+          .trim();
+        if (pageTitle && pageTitle.length > 0 && pageTitle.length < 200) {
+          rawTitle = pageTitle;
+        }
+      }
+
+      const messages = [];
+      let chatIndex = 1;
+
+      messageItems.forEach((item) => {
+        // Check only the bubble element's own classes, not children — AI response
+        // bubbles can contain bg-surface-l1 inside their thinking block sections.
+        const isUser = item.classList.contains(GROK_HUMAN_MESSAGE_CLASS);
+        const author = isUser ? "user" : "ai";
+
+        // For AI messages, prefer the response-content-markdown div directly to
+        // exclude the thinking-container ("Thought for Xs") section entirely.
+        let contentHtml = item;
+        if (!isUser) {
+          const responseDiv = item.querySelector(GROK_RESPONSE_SELECTOR);
+          if (responseDiv) {
+            contentHtml = responseDiv;
+          } else {
+            // Fallback: clone and strip thinking-container
+            const clone = item.cloneNode(true);
+            clone.querySelectorAll(GROK_THINKING_SELECTOR).forEach((el) => el.remove());
+            contentHtml = clone;
+          }
+        }
+
+        const contentText = contentHtml.innerText?.trim() || contentHtml.textContent?.trim() || "";
+        if (!contentText) return;
+
+        const messageId = `${author}-${chatIndex}-${Date.now()}-${Math.random()
+          .toString(36)
+          .substring(2, 9)}`;
+
+        messages.push({
+          id: messageId,
+          author: author,
+          contentHtml: contentHtml,
+          contentText: contentText,
+          timestamp: new Date(),
+          originalIndex: chatIndex,
+        });
+
+        if (!isUser) chatIndex++;
+      });
+
+      // Extract thread messages from the aside panel (if open).
+      // The first bubble in aside is the quoted/context response — skip it.
+      const asideEl = doc.querySelector("aside");
+      if (asideEl) {
+        const asideBubbles = [...asideEl.querySelectorAll(GROK_MESSAGE_SELECTOR)]
+          .filter((el) => (el.textContent?.trim() || "").length > 5);
+        const threadBubbles = asideBubbles.slice(1); // skip context bubble
+
+        if (threadBubbles.length > 0) {
+          messages.push({
+            id: `thread-separator-${Date.now()}`,
+            author: "thread-separator",
+            contentHtml: null,
+            contentText: "",
+            timestamp: new Date(),
+          });
+
+          threadBubbles.forEach((item) => {
+            const isUser = item.classList.contains(GROK_HUMAN_MESSAGE_CLASS);
+            const author = isUser ? "user" : "ai";
+            let contentHtml = item;
+            if (!isUser) {
+              const responseDiv = item.querySelector(GROK_RESPONSE_SELECTOR);
+              if (responseDiv) {
+                contentHtml = responseDiv;
+              } else {
+                const clone = item.cloneNode(true);
+                clone.querySelectorAll(GROK_THINKING_SELECTOR).forEach((el) => el.remove());
+                contentHtml = clone;
+              }
+            }
+            const contentText = contentHtml.innerText?.trim() || contentHtml.textContent?.trim() || "";
+            if (!contentText) return;
+            const messageId = `${author}-thread-${chatIndex}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+            messages.push({
+              id: messageId,
+              author: author,
+              contentHtml: contentHtml,
+              contentText: contentText,
+              timestamp: new Date(),
+              isThread: true,
+            });
+            if (!isUser) chatIndex++;
+          });
+        }
+      }
+
+      const _parsedTitle = Utils.parseChatTitleAndTags(rawTitle);
+
+      return {
+        _raw_title: rawTitle,
+        title: _parsedTitle.title,
+        tags: _parsedTitle.tags,
+        author: CURRENT_PLATFORM,
+        messages: messages,
+        messageCount: messages.filter((m) => m.author === "user").length,
+        exportedAt: new Date(),
+        exporterVersion: EXPORTER_VERSION,
+        threadUrl: window.location.href,
+      };
+    },
+
+    /**
+     * Strips Grok's custom <grok:render> and <xai:*> XML tags from markdown content.
+     * These tags are used by Grok's renderer for citations and images but are not
+     * valid markdown and should be removed from exports.
+     * @param {string} text - Raw markdown from the Grok API.
+     * @returns {string} Cleaned markdown.
+     */
+    stripGrokRenderTags(text) {
+      if (!text) return "";
+      // Remove <grok:render ...>...</grok:render> and self-closing variants
+      let cleaned = text.replace(/<grok:render\b[^>]*>[\s\S]*?<\/grok:render>/g, "");
+      // Remove <xai:*> blocks
+      cleaned = cleaned.replace(/<xai:[^>]*>[\s\S]*?<\/xai:[^>]*>/g, "");
+      // Remove any remaining standalone grok: or xai: open/close tags
+      cleaned = cleaned.replace(/<\/?(?:grok|xai):[^\s>]*/g, "");
+      // Collapse triple+ blank lines left by removed blocks
+      cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+      return cleaned.trim();
+    },
+
+    /**
+     * Fetches all Grok conversation messages (including all threads) via the
+     * Grok REST API using the browser's existing session cookies.
+     * @param {string} conversationId
+     * @returns {Promise<object|null>} Standardized chatData or null on error.
+     */
+    async fetchGrokChatDataFromAPI(conversationId) {
+      try {
+        console.log("[Grok API] Starting API fetch for conversation:", conversationId);
+        // Step 1: Get all response nodes (includes threadParentId for thread messages)
+        const nodeRes = await fetch(GROK_API_RESPONSE_NODE(conversationId), {
+          credentials: "include",
+        });
+        console.log("[Grok API] response-node status:", nodeRes.status);
+        if (!nodeRes.ok) {
+          console.error("[Grok API] response-node fetch failed:", nodeRes.status, nodeRes.statusText);
+          return null;
+        }
+        const nodeData = await nodeRes.json();
+        const responseNodes = nodeData.responseNodes || [];
+        console.log("[Grok API] Found", responseNodes.length, "response nodes");
+        if (responseNodes.length === 0) return null;
+
+        const allIds = responseNodes.map((n) => n.responseId);
+        console.log("[Grok API] Response IDs:", allIds);
+
+        // Step 2: Load full message content for all response IDs in one POST
+        const loadRes = await fetch(GROK_API_LOAD_RESPONSES(conversationId), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ responseIds: allIds }),
+        });
+        console.log("[Grok API] load-responses status:", loadRes.status);
+        if (!loadRes.ok) {
+          console.error("[Grok API] load-responses fetch failed:", loadRes.status, loadRes.statusText);
+          return null;
+        }
+        const loadData = await loadRes.json();
+        const responses = loadData.responses || [];
+        console.log("[Grok API] Loaded", responses.length, "responses");
+        if (responses.length === 0) return null;
+
+        // Build a lookup map: responseId → full response object
+        const responseMap = new Map(responses.map((r) => [r.responseId, r]));
+
+        // Build a lookup map: responseId → threadParentId (from response-node)
+        const threadParentMap = new Map(
+          responseNodes
+            .filter((n) => n.threadParentId)
+            .map((n) => [n.responseId, n.threadParentId])
+        );
+
+        // Separate main-thread messages from sub-thread messages.
+        // Main thread: no threadParentId on the node.
+        // Sub-threads: grouped by their threadParentId (the AI response they branch from).
+        const mainNodes = responseNodes.filter((n) => !n.threadParentId);
+
+        // Group sub-thread nodes by their threadParentId
+        const threadGroups = new Map(); // threadParentId → [node, ...]
+        responseNodes
+          .filter((n) => n.threadParentId)
+          .forEach((n) => {
+            if (!threadGroups.has(n.threadParentId)) {
+              threadGroups.set(n.threadParentId, []);
+            }
+            threadGroups.get(n.threadParentId).push(n);
+          });
+
+        // Extract title from DOM (same logic as DOM-based extractor)
+        let rawTitle = DEFAULT_CHAT_TITLE;
+        const candidateLinks = document.querySelectorAll(
+          `a[href*="/c/${conversationId}"]`
+        );
+        for (const link of candidateLinks) {
+          const text = link.textContent?.trim();
+          if (text && text.length > 4 && text.length < 200 &&
+              !/^(chat|home|voice|imagine|projects?)$/i.test(text)) {
+            rawTitle = text;
+            break;
+          }
+        }
+        if (rawTitle === DEFAULT_CHAT_TITLE) {
+          const pageTitle = (document.title || "")
+            .replace(/\s*[-|]\s*(Grok|X|Chat).*$/i, "")
+            .trim();
+          if (pageTitle && pageTitle.length > 0 && pageTitle.length < 200) {
+            rawTitle = pageTitle;
+          }
+        }
+
+        const messages = [];
+        let chatIndex = 1;
+
+        // Build main thread messages in order
+        mainNodes.forEach((node) => {
+          const resp = responseMap.get(node.responseId);
+          if (!resp) return;
+          const isUser = resp.sender === "human";
+          const author = isUser ? "user" : "ai";
+          const rawContent = resp.message || "";
+          const cleanedContent = isUser
+            ? rawContent
+            : ChatExporter.stripGrokRenderTags(rawContent);
+          if (!cleanedContent.trim()) return;
+
+          const messageId = `${author}-${chatIndex}-${node.responseId}`;
+          messages.push({
+            id: messageId,
+            author,
+            contentHtml: null,
+            contentMarkdown: cleanedContent,
+            contentText: cleanedContent,
+            timestamp: new Date(resp.createTime || Date.now()),
+            originalIndex: chatIndex,
+          });
+
+          // If this AI response has sub-threads, append them after it
+          if (!isUser && threadGroups.has(node.responseId)) {
+            messages.push({
+              id: `thread-separator-${node.responseId}`,
+              author: "thread-separator",
+              contentHtml: null,
+              contentMarkdown: null,
+              contentText: "",
+              timestamp: new Date(),
+            });
+
+            threadGroups.get(node.responseId).forEach((threadNode) => {
+              const threadResp = responseMap.get(threadNode.responseId);
+              if (!threadResp) return;
+              const isThreadUser = threadResp.sender === "human";
+              const threadAuthor = isThreadUser ? "user" : "ai";
+              const threadRaw = threadResp.message || "";
+              const threadContent = isThreadUser
+                ? threadRaw
+                : ChatExporter.stripGrokRenderTags(threadRaw);
+              if (!threadContent.trim()) return;
+
+              const threadMsgId = `${threadAuthor}-thread-${chatIndex}-${threadNode.responseId}`;
+              messages.push({
+                id: threadMsgId,
+                author: threadAuthor,
+                contentHtml: null,
+                contentMarkdown: threadContent,
+                contentText: threadContent,
+                timestamp: new Date(threadResp.createTime || Date.now()),
+                isThread: true,
+              });
+              if (!isThreadUser) chatIndex++;
+            });
+          }
+
+          if (!isUser) chatIndex++;
+        });
+
+        const _parsedTitle = Utils.parseChatTitleAndTags(rawTitle);
+        const result = {
+          _raw_title: rawTitle,
+          title: _parsedTitle.title,
+          tags: _parsedTitle.tags,
+          author: CURRENT_PLATFORM,
+          messages,
+          messageCount: messages.filter((m) => m.author === "user").length,
+          exportedAt: new Date(),
+          exporterVersion: EXPORTER_VERSION,
+          threadUrl: window.location.href,
+        };
+        console.log("[Grok API] Final chat data:", result);
+        return result;
+      } catch (err) {
+        console.error("[Grok API] API fetch failed:", err);
+        return null;
+      }
+    },
+
+    /**
      * Extracts chat data from Gemini's DOM structure.
      * @param {Document} doc - The Document object.
      * @returns {object|null} The standardized chat data, or null.
@@ -860,7 +1227,10 @@
       let exportChatIndex = 0; // Initialize to 0 for sequential user message numbering
 
       chatData.messages.forEach((msg) => {
-        if (msg.author === "user") {
+        if (msg.author === "thread-separator") {
+          content += `\n\n---\n\n## Thread\n\n`;
+          toc += `- [Thread](#thread)\n`;
+        } else if (msg.author === "user") {
           exportChatIndex++; // Increment only for user messages
           const preview = Utils.truncate(
             msg.contentText.replace(/\s+/g, " "),
@@ -875,18 +1245,22 @@
             "\n\n";
         } else {
           let markdownContent;
-          try {
-            markdownContent = turndownServiceInstance.turndown(msg.contentHtml);
-          } catch (e) {
-            console.error(
-              `Error converting AI message ${msg.id} to Markdown:`,
-              e
-            );
-            markdownContent = `[CONVERSION ERROR: Failed to render this section. Original content below]\n\n\`\`\`\n${msg.contentText}\n\`\`\`\n`;
+          if (msg.contentMarkdown != null) {
+            // API-sourced content is already markdown — no Turndown needed
+            markdownContent = msg.contentMarkdown;
+          } else {
+            try {
+              markdownContent = turndownServiceInstance.turndown(msg.contentHtml);
+            } catch (e) {
+              console.error(
+                `Error converting AI message ${msg.id} to Markdown:`,
+                e
+              );
+              markdownContent = `[CONVERSION ERROR: Failed to render this section. Original content below]\n\n\`\`\`\n${msg.contentText}\n\`\`\`\n`;
+            }
           }
           content += markdownContent + "\n\n" + MARKDOWN_BACK_TO_TOP_LINK;
         }
-        // Removed the incorrect increment logic from here
       });
 
       const localTime = Utils.formatLocalTime(chatData.exportedAt);
@@ -923,6 +1297,9 @@
       const processMessageContent = function (msg) {
         if (msg.author === "user") {
           return msg.contentText;
+        } else if (msg.contentMarkdown != null) {
+          // API-sourced content is already markdown — no Turndown needed
+          return msg.contentMarkdown;
         } else {
           let markdownContent;
           try {
@@ -945,11 +1322,14 @@
         exporter: EXPORTER_VERSION,
         date: chatData.exportedAt.toISOString(),
         url: chatData.threadUrl,
-        messages: chatData.messages.map((msg) => ({
-          id: msg.id.split("-").slice(0, 2).join("-"), // Keep the ID for reference in JSON
-          author: msg.author,
-          content: processMessageContent(msg),
-        })),
+        messages: chatData.messages
+          .filter((msg) => msg.author !== "thread-separator")
+          .map((msg) => ({
+            id: msg.id.split("-").slice(0, 2).join("-"),
+            author: msg.author,
+            content: processMessageContent(msg),
+            ...(msg.isThread ? { thread: true } : {}),
+          })),
       };
 
       const fileName = Utils.formatFileName(
@@ -1379,7 +1759,25 @@
      * This function now filters messages based on _selectedMessageIds and visibility.
      * @param {string} format - The desired output format ('markdown' or 'json').
      */
-    initiateExport(format) {
+    async initiateExport(format) {
+      // For Grok: fetch all messages (including all threads) via API before exporting
+      if (CURRENT_PLATFORM === GROK) {
+        const conversationId =
+          window.location.pathname.match(/\/c\/([^/?]+)/)?.[1] ||
+          new URLSearchParams(window.location.search).get("chat");
+
+        if (conversationId) {
+          const apiChatData = await ChatExporter.fetchGrokChatDataFromAPI(conversationId);
+          if (apiChatData && apiChatData.messages.length > 0) {
+            // Use API data for export — includes all threads regardless of UI state
+            ChatExporter._doExport(format, apiChatData, true);
+            return;
+          }
+          // Fall through to DOM-based export if API fails
+          console.warn("[Grok Export] API fetch failed, falling back to DOM extraction.");
+        }
+      }
+
       // Use the _currentChatData that matches the outline's IDs
       const rawChatData = ChatExporter._currentChatData;
       let turndownServiceInstance = null;
@@ -1485,6 +1883,52 @@
         mimeType = "text/markdown;charset=utf-8";
       } else if (format === "json") {
         // Pass the filtered chat data to formatToJSON
+        const jsonResult = ChatExporter.formatToJSON(
+          chatDataForExport,
+          turndownServiceInstance
+        );
+        fileOutput = jsonResult.output;
+        fileName = jsonResult.fileName;
+        mimeType = "application/json;charset=utf-8";
+      } else {
+        alert("Invalid export format selected.");
+        return;
+      }
+
+      if (fileOutput && fileName) {
+        Utils.downloadFile(fileName, fileOutput, mimeType);
+      }
+    },
+
+    /**
+     * Performs the actual file generation and download for a given chatData object.
+     * Used by initiateExport for both DOM-based and API-based paths.
+     * @param {string} format - "markdown" or "json"
+     * @param {object} chatData - The standardized chat data to export (already filtered).
+     * @param {boolean} allMessages - If true, export all messages without outline selection.
+     */
+    _doExport(format, chatData, allMessages = false) {
+      let fileOutput = null;
+      let fileName = null;
+      let mimeType = "";
+
+      const turndownServiceInstance = new TurndownService();
+      ChatExporter.setupTurndownRules(turndownServiceInstance);
+
+      const chatDataForExport = {
+        ...chatData,
+        exportedAt: new Date(),
+      };
+
+      if (format === "markdown") {
+        const markdownResult = ChatExporter.formatToMarkdown(
+          chatDataForExport,
+          turndownServiceInstance
+        );
+        fileOutput = markdownResult.output;
+        fileName = markdownResult.fileName;
+        mimeType = "text/markdown;charset=utf-8";
+      } else if (format === "json") {
         const jsonResult = ChatExporter.formatToJSON(
           chatDataForExport,
           turndownServiceInstance
@@ -1686,57 +2130,73 @@
       document.body.appendChild(container);
     },
 
-    /**
-     * Adds and manages the collapsible outline div.
-     */
-    addOutlineControls() {
-      let outlineContainer = document.querySelector(`#${OUTLINE_CONTAINER_ID}`);
-      if (!outlineContainer) {
-        outlineContainer = document.createElement("div");
-        outlineContainer.id = OUTLINE_CONTAINER_ID;
-        document.body.appendChild(outlineContainer);
-      }
+     /**
+      * Adds and manages the collapsible outline div.
+      */
+     async addOutlineControls() {
+       let outlineContainer = document.querySelector(`#${OUTLINE_CONTAINER_ID}`);
+       if (!outlineContainer) {
+         outlineContainer = document.createElement("div");
+         outlineContainer.id = OUTLINE_CONTAINER_ID;
+         document.body.appendChild(outlineContainer);
+       }
 
-      // Apply base styles
-      Utils.applyStyles(outlineContainer, OUTLINE_CONTAINER_PROPS);
+       // Apply base styles
+       Utils.applyStyles(outlineContainer, OUTLINE_CONTAINER_PROPS);
 
-      // Apply collapsed styles if state is collapsed
-      if (UIManager._outlineIsCollapsed) {
-        Utils.applyStyles(outlineContainer, OUTLINE_CONTAINER_COLLAPSED_PROPS);
-      }
+       // Apply collapsed styles if state is collapsed
+       if (UIManager._outlineIsCollapsed) {
+         Utils.applyStyles(outlineContainer, OUTLINE_CONTAINER_COLLAPSED_PROPS);
+       }
 
-      UIManager.generateOutlineContent();
-    },
+       await UIManager.generateOutlineContent();
+     },
 
-    /**
-     * Generates and updates the content of the outline div.
-     * This function should be called whenever the chat data changes.
-     */
-    generateOutlineContent() {
-      const outlineContainer = document.querySelector(
-        `#${OUTLINE_CONTAINER_ID}`
-      );
-      if (!outlineContainer) return;
+     /**
+      * Generates and updates the content of the outline div.
+      * This function should be called whenever the chat data changes.
+      */
+     async generateOutlineContent() {
+       const outlineContainer = document.querySelector(
+         `#${OUTLINE_CONTAINER_ID}`
+       );
+       if (!outlineContainer) return;
 
-      // Extract fresh chat data
-      let freshChatData = null;
-      switch (CURRENT_PLATFORM) {
-        case CHATGPT:
-          freshChatData = ChatExporter.extractChatGPTChatData(document);
-          break;
-        case CLAUDE:
-          freshChatData = ChatExporter.extractClaudeChatData(document);
-          break;
-        case COPILOT:
-          freshChatData = ChatExporter.extractCopilotChatData(document);
-          break;
-        case GEMINI:
-          freshChatData = ChatExporter.extractGeminiChatData(document);
-          break;
-        default:
-          outlineContainer.style.display = "none"; // Hide if not supported
-          return;
-      }
+       // Extract fresh chat data
+       let freshChatData = null;
+       if (CURRENT_PLATFORM === GROK) {
+         // For Grok, try to fetch all data via API first
+         const conversationId =
+           window.location.pathname.match(/\/c\/([^/?]+)/)?.[1] ||
+           new URLSearchParams(window.location.search).get("chat");
+         if (conversationId) {
+           freshChatData = await ChatExporter.fetchGrokChatDataFromAPI(conversationId);
+           if (!freshChatData) {
+             console.warn("[Grok Outline] API fetch failed, falling back to DOM extraction.");
+             freshChatData = ChatExporter.extractGrokChatData(document);
+           }
+         } else {
+           freshChatData = ChatExporter.extractGrokChatData(document);
+         }
+       } else {
+         switch (CURRENT_PLATFORM) {
+           case CHATGPT:
+             freshChatData = ChatExporter.extractChatGPTChatData(document);
+             break;
+           case CLAUDE:
+             freshChatData = ChatExporter.extractClaudeChatData(document);
+             break;
+           case COPILOT:
+             freshChatData = ChatExporter.extractCopilotChatData(document);
+             break;
+           case GEMINI:
+             freshChatData = ChatExporter.extractGeminiChatData(document);
+             break;
+           default:
+             outlineContainer.style.display = "none"; // Hide if not supported
+             return;
+         }
+       }
 
       // Check if chat data has changed significantly to warrant a re-render
       // Compare message count and content of the last few messages as a heuristic
@@ -1901,10 +2361,33 @@
       const outlineItemElements = new Map(); // Map<messageId, itemDiv>
 
       ChatExporter._currentChatData.messages.forEach((msg, index) => {
-        if (msg.author === "user") {
+        if (msg.author === "thread-separator") {
+          // --- Thread section divider ---
+          const separatorDiv = document.createElement("div");
+          separatorDiv.style.cssText =
+            "display:flex; flex-direction:column; gap:2px; margin:6px 0 2px 0; padding:4px 6px; background:#f5f0ff; border-left:3px solid #5b3f87; border-radius:3px;";
+
+          const separatorLabel = document.createElement("span");
+          separatorLabel.textContent = "↳ Thread";
+          separatorLabel.style.cssText =
+            "font-size:11px; font-weight:700; color:#5b3f87; letter-spacing:0.04em;";
+          separatorDiv.appendChild(separatorLabel);
+
+          const separatorNote = document.createElement("span");
+          separatorNote.textContent = "✓ All threads exported automatically via API.";
+          separatorNote.style.cssText =
+            "font-size:10px; color:#5b8a3c; font-style:italic;";
+          separatorDiv.appendChild(separatorNote);
+
+          messageListDiv.appendChild(separatorDiv);
+        } else if (msg.author === "user") {
           userQuestionCount++; // Increment 'y'
           const itemDiv = document.createElement("div");
           Utils.applyStyles(itemDiv, OUTLINE_ITEM_PROPS);
+          if (msg.isThread) {
+            itemDiv.style.paddingLeft = "12px";
+            itemDiv.style.borderLeft = "2px solid #c9b8f0";
+          }
           itemDiv.dataset.userMessageId = msg.id; // Store user message ID for search lookup
 
           const checkbox = document.createElement("input");
@@ -1929,12 +2412,14 @@
           itemDiv.appendChild(checkbox);
 
           const itemText = document.createElement("span");
-          itemText.textContent = `${userQuestionCount}: ${Utils.truncate(
+          const threadPrefix = msg.isThread ? "↳ " : "";
+          itemText.textContent = `${threadPrefix}${userQuestionCount}: ${Utils.truncate(
             msg.contentText,
             40
           )}`; // Truncate to 40
           itemText.style.cursor = "pointer"; // Set cursor to hand
           itemText.style.textDecoration = "none"; // Remove underline
+          if (msg.isThread) itemText.style.color = "#5b3f87";
           itemText.title = `${userQuestionCount}: ${Utils.truncate(
             msg.contentText.replace(/\n+/g, "\n"),
             140
@@ -1947,7 +2432,7 @@
           };
           itemText.onmouseout = () => {
             itemText.style.backgroundColor = "transparent"; // Revert background on mouse out
-            itemText.style.color = "#333"; // Revert text color on mouse out (assuming default is #333, adjust if needed)
+            itemText.style.color = msg.isThread ? "#5b3f87" : "#333";
           };
 
           itemText.onclick = () => {
@@ -1955,7 +2440,6 @@
             const messageElement = ChatExporter._currentChatData.messages.find(
               (m) => m.id === msg.id
             )?.contentHtml;
-            // console.log("clicked on message", msg.id, messageElement);
             if (messageElement) {
               messageElement.scrollIntoView({
                 behavior: "smooth",
@@ -2495,7 +2979,7 @@
       // UIManager.showAlert(
       //   "Auto-scroll complete. You can now export your chat."
       // );
-      UIManager.addOutlineControls();
+      await UIManager.addOutlineControls();
     },
 
     /**
@@ -2526,20 +3010,20 @@
       }
     },
 
-    /**
-     * Initializes a MutationObserver to ensure the controls are always present
-     * and to regenerate the outline on DOM changes.
-     */
-    initObserver() {
-      const observer = new MutationObserver((mutations) => {
-        // Only re-add export controls if they are missing
-        if (!document.querySelector(`#${EXPORT_CONTAINER_ID}`)) {
-          UIManager.addExportControls();
-        }
-        // Always ensure outline controls are present and regenerate content on changes
-        // This covers new messages, and for Gemini, scrolling up to load more content.
-        UIManager.addOutlineControls();
-      });
+     /**
+      * Initializes a MutationObserver to ensure the controls are always present
+      * and to regenerate the outline on DOM changes.
+      */
+     initObserver() {
+       const observer = new MutationObserver(async (mutations) => {
+         // Only re-add export controls if they are missing
+         if (!document.querySelector(`#${EXPORT_CONTAINER_ID}`)) {
+           UIManager.addExportControls();
+         }
+         // Always ensure outline controls are present and regenerate content on changes
+         // This covers new messages, and for Gemini, scrolling up to load more content.
+         await UIManager.addOutlineControls();
+       });
 
       // Selector that includes chat messages and where new messages are added
       let targetNode = null;
@@ -2551,6 +3035,9 @@
           break;
         case GEMINI:
           targetNode = document.querySelector("#__next") || document.body;
+          break;
+        case GROK:
+          targetNode = document.querySelector("main") || document.body;
           break;
         default:
           targetNode = document.querySelector("main") || document.body;
@@ -2570,7 +3057,7 @@
           "scroll",
           () => {
             clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(() => {
+            scrollTimeout = setTimeout(async () => {
               // Only regenerate if title or tags are different or current data count is less than actual count (implies more loaded)
               const newChatData = ChatExporter.extractGeminiChatData(document);
               if (
@@ -2581,7 +3068,7 @@
                   newChatData.messages.length >
                     ChatExporter._currentChatData.messages.length)
               ) {
-                UIManager.addOutlineControls(); // Regenerate outline
+                await UIManager.addOutlineControls(); // Regenerate outline
               }
             }, 500); // Debounce scroll events
           },
@@ -2640,10 +3127,10 @@
         document.readyState === "interactive"
       ) {
         // console.log("DOM is ready (complete or interactive). Setting timeout for UI controls.");
-        setTimeout(() => {
+        setTimeout(async () => {
           // console.log("Timeout elapsed. Adding export and outline controls.");
           UIManager.addExportControls();
-          UIManager.addOutlineControls(); // Add outline after buttons
+          await UIManager.addOutlineControls(); // Add outline after buttons
           // New: Initiate auto-scroll for Gemini after controls are set up
           // console.log("Checking if current host is a Gemini hostname...");
           if (CURRENT_PLATFORM === GEMINI) {
@@ -2656,10 +3143,10 @@
       } else {
         // console.log("DOM not yet ready. Adding DOMContentLoaded listener.");
         window.addEventListener("DOMContentLoaded", () =>
-          setTimeout(() => {
+          setTimeout(async () => {
             // console.log("DOMContentLoaded event fired. Adding export and outline controls after timeout.");
             UIManager.addExportControls();
-            UIManager.addOutlineControls(); // Add outline after buttons
+            await UIManager.addOutlineControls(); // Add outline after buttons
             // New: Initiate auto-scroll for Gemini after controls are set up
             // console.log("Checking if current host is a Gemini hostname (from DOMContentLoaded).");
             if (CURRENT_PLATFORM === GEMINI) {

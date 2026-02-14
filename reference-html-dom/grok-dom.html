@@ -1,0 +1,286 @@
+<!--
+  Grok DOM reference snapshot — main conversation, no thread panel open.
+  Captured from grok.com. Sanitized:
+    - UUIDs replaced with sequential placeholders
+    - Usernames/names replaced with [User]
+    - radix-* IDs removed
+
+  Key selectors used by ai-chat-exporter:
+    User bubble:  .message-bubble.bg-surface-l1.border.border-border-l1  (items-end wrapper = right-aligned)
+    AI bubble:    .message-bubble.w-full.max-w-none                       (items-start wrapper = left-aligned)
+    Thinking:     .thinking-container.mb-3
+    Content:      .response-content-markdown.markdown
+    Response ID:  id="response-{UUID}" on the wrapper div
+    No thread:    <aside> element is absent
+-->
+<div class="relative flex w-full flex-col items-center pt-20 pb-4">
+  <div></div>
+
+  <!-- USER MESSAGE 1 -->
+  <div class="relative group flex flex-col justify-center w-full max-w-[var(--content-max-width)] pb-0.5 items-end" id="response-aaaaaaaa-0001-0001-0001-000000000001" style="scroll-margin-top: var(--scroll-margin-top, 0px);">
+    <div dir="auto" class="message-bubble relative rounded-3xl text-primary min-h-7 prose dark:prose-invert break-words prose-p:opacity-100 prose-strong:opacity-100 prose-li:opacity-100 prose-ul:opacity-100 prose-ol:opacity-100 prose-ul:my-1 prose-ol:my-1 prose-li:my-2 last:prose-li:mb-3 prose-li:ps-1 prose-li:ms-1 bg-surface-l1 border border-border-l1 max-w-[100%] @sm/mainview:max-w-[90%] px-4 rounded-br-lg">
+      <div class="relative">
+        <div class="relative">
+          <div class="relative response-content-markdown markdown [&_a:not(.not-prose)]:text-current [&_a:not(.not-prose):hover]:text-primary [&_a:not(.not-prose):hover]:decoration-primary [&_a:not(.not-prose)]:underline [&_a:not(.not-prose)]:decoration-primary/30 [&_a:not(.not-prose)]:underline-offset-2 [&_h2:not(.not-prose):first-child]:mt-0 [&_h3:not(.not-prose):first-child]:mt-0 [&_h4:not(.not-prose):first-child]:mt-0">
+            <p dir="auto" class="break-words" style="white-space: pre-wrap;">This is a test conversation. Give a sample response</p>
+          </div>
+        </div>
+        <section class="inline-media-container flex flex-col gap-1 clear-both"></section>
+        <section class="auth-notification flex flex-col gap-1"></section>
+      </div>
+    </div>
+    <div class="action-buttons h-8 mt-0.5 mb-2 flex flex-row flex-wrap w-full justify-end print:hidden">
+      <div class="flex items-center gap-[2px] w-max rounded-lg text-xs px-2 end-4 -mr-2">
+        <button type="button" aria-label="Edit" data-state="closed"></button>
+        <button type="button" aria-label="Copy" data-state="closed"></button>
+      </div>
+    </div>
+    <div style="height: 1px; position: absolute; bottom: 0px; z-index: 1000;"></div>
+  </div>
+
+  <!-- AI RESPONSE 1 (no visible thinking content) -->
+  <div class="relative group flex flex-col justify-center w-full max-w-[var(--content-max-width)] pb-0.5 items-start" id="response-aaaaaaaa-0001-0001-0002-000000000002" style="scroll-margin-top: var(--scroll-margin-top, 0px);">
+    <div dir="auto" class="message-bubble relative rounded-3xl text-primary min-h-7 prose dark:prose-invert break-words prose-p:opacity-100 prose-strong:opacity-100 prose-li:opacity-100 prose-ul:opacity-100 prose-ol:opacity-100 prose-ul:my-1 prose-ol:my-1 prose-li:my-2 last:prose-li:mb-3 prose-li:ps-1 prose-li:ms-1 w-full max-w-none">
+      <div class="relative">
+        <div class="thinking-container mb-3">
+          <div class="flex flex-col"></div>
+        </div>
+        <div class="relative">
+          <div class="relative response-content-markdown markdown [&_a:not(.not-prose)]:text-current [&_a:not(.not-prose):hover]:text-primary [&_a:not(.not-prose):hover]:decoration-primary [&_a:not(.not-prose)]:underline [&_a:not(.not-prose)]:decoration-primary/30 [&_a:not(.not-prose)]:underline-offset-2 [&_h2:not(.not-prose):first-child]:mt-0 [&_h3:not(.not-prose):first-child]:mt-0 [&_h4:not(.not-prose):first-child]:mt-0">
+            <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">Sure, here's a sample response to kick off this test conversation: "Hello, [User]! As Grok built by xAI, I'm here to help with anything from cosmic queries to code conundrums. What's on your mind today?"</p>
+          </div>
+        </div>
+        <section class="inline-media-container flex flex-col gap-1 clear-both"></section>
+        <section class="auth-notification flex flex-col gap-1"></section>
+      </div>
+    </div>
+    <div class="action-buttons h-8 mt-0.5 mb-2 flex flex-row flex-wrap w-full justify-between print:hidden">
+      <div class="flex items-center gap-[2px] w-max rounded-lg text-xs px-2 start-0 @md/chat:start-3 -ml-4">
+        <button type="button" aria-label="Regenerate" data-state="closed"></button>
+        <button type="button" aria-label="Read aloud" data-state="closed"></button>
+        <button type="button" aria-label="Start thread" data-state="closed">
+          <span class="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full border px-1 text-[10px] bg-background font-medium">2</span>
+        </button>
+        <button type="button" aria-label="Copy" data-state="closed"></button>
+        <button type="button" aria-label="Like" data-state="closed"></button>
+        <button type="button" aria-label="Dislike" data-state="closed"></button>
+        <button type="button" aria-label="More actions" data-state="closed"></button>
+      </div>
+    </div>
+    <div style="height: 1px; position: absolute; bottom: 0px; z-index: 1000;"></div>
+  </div>
+
+  <!-- last-reply-container wraps the final Q/A pair -->
+  <div class="w-full flex-col mx-auto flex max-w-[--content-max-width]" id="last-reply-container" style="--gutter-width: calc((100cqw - var(--content-width)) / 2);">
+    <div class="flex flex-col items-center">
+
+      <!-- USER MESSAGE 2 -->
+      <div class="relative group flex flex-col justify-center w-full max-w-[var(--content-max-width)] pb-0.5 items-end" id="response-aaaaaaaa-0001-0001-0003-000000000003" style="scroll-margin-top: var(--scroll-margin-top, 0px);">
+        <div dir="auto" class="message-bubble relative rounded-3xl text-primary min-h-7 prose dark:prose-invert break-words prose-p:opacity-100 prose-strong:opacity-100 prose-li:opacity-100 prose-ul:opacity-100 prose-ol:opacity-100 prose-ul:my-1 prose-ol:my-1 prose-li:my-2 last:prose-li:mb-3 prose-li:ps-1 prose-li:ms-1 bg-surface-l1 border border-border-l1 max-w-[100%] @sm/mainview:max-w-[90%] px-4 rounded-br-lg">
+          <div class="relative">
+            <div class="relative">
+              <div class="relative response-content-markdown markdown [&_a:not(.not-prose)]:text-current [&_a:not(.not-prose):hover]:text-primary [&_a:not(.not-prose):hover]:decoration-primary [&_a:not(.not-prose)]:underline [&_a:not(.not-prose)]:decoration-primary/30 [&_a:not(.not-prose)]:underline-offset-2 [&_h2:not(.not-prose):first-child]:mt-0 [&_h3:not(.not-prose):first-child]:mt-0 [&_h4:not(.not-prose):first-child]:mt-0">
+                <p dir="auto" class="break-words" style="white-space: pre-wrap;">This is a test continuation. Give a comprehensive response example of all potential formatting content including injecting images and article links, lists, and all markdown formatting.</p>
+              </div>
+            </div>
+            <section class="inline-media-container flex flex-col gap-1 clear-both"></section>
+            <section class="auth-notification flex flex-col gap-1"></section>
+          </div>
+        </div>
+        <div class="action-buttons h-8 mt-0.5 mb-2 flex flex-row flex-wrap w-full justify-end print:hidden">
+          <div class="flex items-center gap-[2px] w-max rounded-lg text-xs px-2 end-4 -mr-2">
+            <button type="button" aria-label="Edit" data-state="closed"></button>
+            <button type="button" aria-label="Copy" data-state="closed"></button>
+          </div>
+        </div>
+        <div style="height: 1px; position: absolute; bottom: 0px; z-index: 1000;"></div>
+      </div>
+
+    </div>
+    <div class="flex flex-col items-center">
+
+      <!-- AI RESPONSE 2 (rich content: headings, lists, table, code block, images, citations, thinking block) -->
+      <div class="relative group flex flex-col justify-center w-full max-w-[var(--content-max-width)] pb-0.5 items-start" id="response-aaaaaaaa-0001-0001-0004-000000000004" style="scroll-margin-top: var(--scroll-margin-top, 0px);">
+        <div dir="auto" class="message-bubble relative rounded-3xl text-primary min-h-7 prose dark:prose-invert break-words prose-p:opacity-100 prose-strong:opacity-100 prose-li:opacity-100 prose-ul:opacity-100 prose-ol:opacity-100 prose-ul:my-1 prose-ol:my-1 prose-li:my-2 last:prose-li:mb-3 prose-li:ps-1 prose-li:ms-1 w-full max-w-none">
+          <div class="relative">
+            <!-- Thinking block (visible, collapsed by default) -->
+            <div class="thinking-container mb-3">
+              <div class="flex flex-col">
+                <button class="flex flex-row items-center text-secondary gap-1 relative cursor-pointer group/notes">
+                  <div class="transition-opacity duration-200 group-hover/notes:opacity-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="stroke-[2] ">
+                      <path d="M15 16.1378L14.487 15.2794L14 15.5705V16.1378H15ZM8.99997 16.1378H9.99997V15.5705L9.51293 15.2794L8.99997 16.1378Z" fill="currentColor"></path>
+                    </svg>
+                  </div>
+                  <span>Thought for 30s</span>
+                </button>
+              </div>
+            </div>
+            <div class="relative">
+              <div class="relative response-content-markdown markdown [&_a:not(.not-prose)]:text-current [&_a:not(.not-prose):hover]:text-primary [&_a:not(.not-prose):hover]:decoration-primary [&_a:not(.not-prose)]:underline [&_a:not(.not-prose)]:decoration-primary/30 [&_a:not(.not-prose)]:underline-offset-2 [&_h2:not(.not-prose):first-child]:mt-0 [&_h3:not(.not-prose):first-child]:mt-0 [&_h4:not(.not-prose):first-child]:mt-0">
+                <h1 dir="auto" class="text-3xl">Comprehensive Response Example: A Guide to Markdown Formatting</h1>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">Welcome, [User]! This sample response demonstrates various Markdown elements, integrated with visual enhancements like images of stunning landscapes (to show how visuals can complement text), and citations from web searches and X posts for credibility. Markdown is a lightweight markup language that makes text formatting easy and readable.<a href="https://www.markdownguide.org/basic-syntax" target="_blank" rel="noopener noreferrer nofollow" class="no-copy inline-flex items-center justify-center ms-1 text-nowrap print:hidden px-1.5 h-5 text-xs font-medium rounded-full border border-border-l1 bg-surface-l1 hover:!bg-surface-l1-hover !text-fg-secondary hover:!text-fg-primary visited:text-fg-secondary focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:bg-surface-l1-hover !no-underline hover:!no-underline citation" data-state="closed">markdownguide.org</a></p>
+                <h2 dir="auto" class="text-2xl mt-[1.5em]">Basic Text Formatting</h2>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">You can emphasize text in several ways:</p>
+                <ul dir="auto" class="marker:text-secondary">
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal"><strong class="font-semibold">Bold text</strong> using double asterisks or underscores: <span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300">**bold**</span> or <span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300">__bold__</span>.</li>
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal"><em>Italic text</em> with single asterisks or underscores: <span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300">*italic*</span> or <span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300">_italic_</span>.</li>
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal"><em><strong class="font-semibold">Bold and italic</strong></em> combined: <span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300">***bold italic***</span>.</li>
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal">Strikethrough with tildes: <del>strikethrough</del> (<span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300">~~strikethrough~~</span>).</li>
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal">Underline isn't native to Markdown, but some renderers support it with HTML: <u>underline</u>.</li>
+                </ul>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">For example, in LLM responses, bold is great for highlighting key points like <strong class="font-semibold">enhance readability</strong>.<a href="https://medium.com/@sketch.paintings/a-guide-to-markdown-styles-in-llm-responses-ed9a6e869cf4" target="_blank" rel="noopener noreferrer nofollow" class="no-copy inline-flex items-center justify-center ms-1 text-nowrap print:hidden px-1.5 h-5 text-xs font-medium rounded-full border border-border-l1 bg-surface-l1 hover:!bg-surface-l1-hover !text-fg-secondary hover:!text-fg-primary visited:text-fg-secondary focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:bg-surface-l1-hover !no-underline hover:!no-underline citation" data-state="closed">medium.com</a></p>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">To visualize how formatting can make a scenic description pop, here's a misty mountain landscape:</p>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">
+                  <div aria-label="15 Most Beautiful Landscapes in the USA in 2020 - The Wanderlust Rose" class="flex flex-col gap-1 clear-both justify-center w-fit mx-auto" data-testid="image-viewer">
+                    <div class="grid not-prose w-full">
+                      <div class="relative group/image cursor-pointer">
+                        <div class="relative rounded-lg overflow-hidden w-full" style="background-color: hsl(var(--surface-l2));"><img alt="15 Most Beautiful Landscapes in the USA in 2020 - The Wanderlust Rose" class="rounded-lg object-contain max-h-[448px] w-full" src="https://mylifesamovie.com/wp-content/uploads/2020/04/Screenshot-2020-04-07-at-7.44.25-PM-1024x683.png"></div>
+                        <div class="absolute bottom-1 right-1 opacity-0 group-hover/image:opacity-100"><a href="https://thewanderlustrose.com/15-most-beautiful-landscapes-in-the-usa-in-2020/" target="_blank" rel="noopener noreferrer" class="bg-surface-l1 text-fg-primary text-xs px-2 rounded-3xl hover:bg-surface-l3 line-clamp-1"><span>thewanderlustrose.com</span></a></div>
+                      </div>
+                    </div>
+                    <div><div class="text-xs text-fg-tertiary @lg/chat:pb-2 leading-normal" title="15 Most Beautiful Landscapes in the USA in 2020 - The Wanderlust Rose">15 Most Beautiful Landscapes in the USA in 2020 - The Wanderlust Rose</div></div>
+                  </div>
+                </p>
+                <h2 dir="auto" class="text-2xl mt-[1.5em]">Lists for Organization</h2>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">Lists help break down information clearly. Here's an unordered list of common Markdown tips:</p>
+                <ul dir="auto" class="marker:text-secondary">
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal">Use parentheses for grouping complex queries in searches.<a href="https://x.com/Tips_Singer/status/2022664228314689845?referrer=grok-com" target="_blank" rel="noopener noreferrer nofollow" class="no-copy inline-flex items-center justify-center ms-1 text-nowrap print:hidden px-1.5 h-5 text-xs font-medium rounded-full border border-border-l1 bg-surface-l1 hover:!bg-surface-l1-hover !text-fg-secondary hover:!text-fg-primary visited:text-fg-secondary focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:bg-surface-l1-hover !no-underline hover:!no-underline citation" data-state="closed">@Tips_Singer</a></li>
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal">Automate formatting for books or materials using tools that export to EPUB, PDF, or DOCX.</li>
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal">Be cautious with vulnerabilities in apps when handling Markdown links.<a href="https://x.com/Easy2Tips/status/2022196110732013882?referrer=grok-com" target="_blank" rel="noopener noreferrer nofollow" class="no-copy inline-flex items-center justify-center ms-1 text-nowrap print:hidden px-1.5 h-5 text-xs font-medium rounded-full border border-border-l1 bg-surface-l1 hover:!bg-surface-l1-hover !text-fg-secondary hover:!text-fg-primary visited:text-fg-secondary focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:bg-surface-l1-hover !no-underline hover:!no-underline citation" data-state="closed">@Easy2Tips</a></li>
+                </ul>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">And a numbered list for steps to create a simple Markdown document:</p>
+                <ol dir="auto" class="marker:text-secondary">
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal">Start with a header: <span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300"># Main Title</span>.</li>
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal">Add paragraphs by just writing text.</li>
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal">Insert links: <a href="https://www.markdownguide.org" target="_blank" rel="noopener noreferrer nofollow">Markdown Guide</a>.</li>
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal">Embed code: Use backticks for inline <span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300">code</span> or triple backticks for blocks.</li>
+                </ol>
+                <h2 dir="auto" class="text-2xl mt-[1.5em]">Tables for Data Presentation</h2>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">Tables are ideal for comparisons. Below is a table summarizing Markdown header levels:</p>
+                <div class="relative group/table">
+                  <div dir="auto" class="table-container relative clear-both flex flex-row group/table overflow-scroll">
+                    <table dir="auto" class="[&>thead>tr>th:last-child]:pe-8 w-fit min-w-[calc(var(--content-width)-13px)] [&_td_ul]:my-1 [&_td_ol]:my-1 [&_td_li]:my-0">
+                      <thead class="sticky [top:var(--thead-sticky-top)] border-b-0 [&_th]:h-10">
+                        <tr class="border-primary/10">
+                          <th class="break-words" data-col-size="xs">Header Level</th>
+                          <th class="break-words" data-col-size="md">Syntax</th>
+                          <th class="break-words" data-col-size="lg">Example Output</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr class="border-primary/10">
+                          <td class="break-words" data-col-size="xs" style="white-space: pre-wrap;">H1</td>
+                          <td class="break-words" data-col-size="md" style="white-space: pre-wrap;"><span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300"># Heading</span></td>
+                          <td class="break-words" data-col-size="lg" style="white-space: pre-wrap;"># Heading</td>
+                        </tr>
+                        <tr class="border-primary/10">
+                          <td class="break-words" data-col-size="xs" style="white-space: pre-wrap;">H2</td>
+                          <td class="break-words" data-col-size="md" style="white-space: pre-wrap;"><span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300">## Heading</span></td>
+                          <td class="break-words" data-col-size="lg" style="white-space: pre-wrap;">## Heading</td>
+                        </tr>
+                        <tr class="border-primary/10">
+                          <td class="break-words" data-col-size="xs" style="white-space: pre-wrap;">H3</td>
+                          <td class="break-words" data-col-size="md" style="white-space: pre-wrap;"><span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300">### Heading</span></td>
+                          <td class="break-words" data-col-size="lg" style="white-space: pre-wrap;">### Heading</td>
+                        </tr>
+                        <tr class="border-primary/10">
+                          <td class="break-words" data-col-size="xs" style="white-space: pre-wrap;">H4</td>
+                          <td class="break-words" data-col-size="md" style="white-space: pre-wrap;"><span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300">#### Heading</span></td>
+                          <td class="break-words" data-col-size="lg" style="white-space: pre-wrap;">#### Heading</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">Alternative H1/H2 styles use underlines like <span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300">======</span> or <span class="text-sm px-1 rounded-sm !font-mono bg-orange-400/10 text-orange-500 dark:bg-orange-300/10 dark:text-orange-300">------</span>.<a href="https://gist.github.com/allysonsilva/85fff14a22bbdf55485be947566cc09e" target="_blank" rel="noopener noreferrer nofollow" class="no-copy inline-flex items-center justify-center ms-1 text-nowrap print:hidden px-1.5 h-5 text-xs font-medium rounded-full border border-border-l1 bg-surface-l1 hover:!bg-surface-l1-hover !text-fg-secondary hover:!text-fg-primary visited:text-fg-secondary focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:bg-surface-l1-hover !no-underline hover:!no-underline citation" data-state="closed">gist.github.com</a></p>
+                <h2 dir="auto" class="text-2xl mt-[1.5em]">Code Blocks and Quotes</h2>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">For sharing code snippets, use fenced code blocks:</p>
+                <div dir="auto" class="not-prose">
+                  <div class="relative not-prose @container/code-block [&_div+div]:!mt-0 mb-3 mt-3 @md:-mx-4 @md:-mr-4" data-testid="code-block">
+                    <div class="border border-warm-gray-100 dark:border-neutral-900 rounded-xl">
+                      <div class="flex flex-row px-4 py-2 h-10 items-center rounded-t-xl bg-black">
+                        <span class="font-mono text-xs text-secondary select-none">text</span>
+                      </div>
+                      <div class="shiki not-prose relative [&_pre]:overflow-auto [&_pre]:rounded-b-lg [&_pre]:px-4 [&_pre]:py-4 !p-0 [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:whitespace-pre-wrap [&_code]:break-words" style="background-color: hsl(var(--surface-inset));">
+                        <pre class="shiki slack-dark" tabindex="0" style="background-color: rgb(34, 34, 34); color: rgb(230, 230, 230);"><code><span class="line"><span># Python example</span></span>
+<span class="line"><span>print("Hello, Markdown!")</span></span></code></pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">This is useful for tutorials or debugging tips.</p>
+                <blockquote dir="auto" class="my-1 border-border-l3 [&_p]:before:content-none [&_p]:after:content-none">
+                  <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">Blockquotes are perfect for highlighting quotes or asides, like this tip: "Markdown is an incredibly powerful tool for formatting text in LLM responses."<a href="https://medium.com/@sketch.paintings/a-guide-to-markdown-styles-in-llm-responses-ed9a6e869cf4" target="_blank" rel="noopener noreferrer nofollow" class="no-copy inline-flex items-center justify-center ms-1 text-nowrap print:hidden px-1.5 h-5 text-xs font-medium rounded-full border border-border-l1 bg-surface-l1 hover:!bg-surface-l1-hover !text-fg-secondary hover:!text-fg-primary visited:text-fg-secondary focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:bg-surface-l1-hover !no-underline hover:!no-underline citation" data-state="closed">medium.com</a></p>
+                </blockquote>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">Here's another breathtaking view—a turquoise lake nestled among glowing peaks:</p>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">
+                  <div aria-label="Beautiful Landscapes: Top 51 Stunning Vistas in 2024" class="flex flex-col gap-1 clear-both justify-center w-fit mx-auto" data-testid="image-viewer">
+                    <div class="grid not-prose w-full">
+                      <div class="relative group/image cursor-pointer">
+                        <div class="relative rounded-lg overflow-hidden w-full" style="background-color: hsl(var(--surface-l2));"><img alt="Beautiful Landscapes: Top 51 Stunning Vistas in 2024" class="rounded-lg object-contain max-h-[448px] w-full" src="https://berrizdesign.com/wp-content/uploads/2024/05/beautiful-landscape.jpg"></div>
+                        <div class="absolute bottom-1 right-1 opacity-0 group-hover/image:opacity-100"><a href="https://berrizdesign.com/beautiful-landscape/" target="_blank" rel="noopener noreferrer" class="bg-surface-l1 text-fg-primary text-xs px-2 rounded-3xl hover:bg-surface-l3 line-clamp-1"><span>berrizdesign.com</span></a></div>
+                      </div>
+                    </div>
+                    <div><div class="text-xs text-fg-tertiary @lg/chat:pb-2 leading-normal" title="Beautiful Landscapes: Top 51 Stunning Vistas in 2024">Beautiful Landscapes: Top 51 Stunning Vistas in 2024</div></div>
+                  </div>
+                </p>
+                <h2 dir="auto" class="text-2xl mt-[1.5em]">Advanced Elements</h2>
+                <ul dir="auto" class="marker:text-secondary">
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal"><strong class="font-semibold">Horizontal Rules</strong>: Use three dashes, asterisks, or underscores for separators:</li>
+                </ul>
+                <hr class="border-border-l2 clear-both">
+                <ul dir="auto" class="marker:text-secondary">
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal"><strong class="font-semibold">Links and Images</strong>: While native Markdown supports <a href="image-url" target="_blank" rel="noopener noreferrer nofollow">alt text</a>, in this enhanced response, we use specialized rendering for searched images.</li>
+                  <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal"><strong class="font-semibold">Task Lists</strong>: For checklists (some renderers support):
+                    <ul dir="auto" class="marker:text-secondary contains-task-list">
+                      <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal task-list-item">
+                        <button type="button" role="checkbox" aria-checked="true" aria-required="false" data-state="checked" value="on" class="peer h-4 w-4 shrink-0 rounded-sm border border-primary shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground align-middle"></button>
+                        Learn basics
+                      </li>
+                      <li class="break-words whitespace-pre-wrap [&>ul]:whitespace-normal [&>ol]:whitespace-normal task-list-item">
+                        <button type="button" role="checkbox" aria-checked="false" aria-required="false" data-state="unchecked" value="on" class="peer h-4 w-4 shrink-0 rounded-sm border border-primary shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground align-middle"></button>
+                        Explore advanced features
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">Recent X posts highlight creative uses, such as giving LLMs long-term memory via Markdown dumps for automation.<span class="inline-flex flex-row flex-wrap items-center max-w-full gap-y-1 print:hidden"><a href="https://x.com/PowerBITips/status/2021900962214903959?referrer=grok-com" target="_blank" rel="noopener noreferrer nofollow" class="no-copy inline-flex items-center justify-center ms-1 text-nowrap print:hidden px-1.5 h-5 text-xs font-medium rounded-full border border-border-l1 bg-surface-l1 hover:!bg-surface-l1-hover !text-fg-secondary hover:!text-fg-primary visited:text-fg-secondary focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:bg-surface-l1-hover !no-underline hover:!no-underline citation" data-state="closed">@PowerBITips</a><a href="https://www.reddit.com/r/SillyTavernAI/comments/1i7qbbk/first_line_of_response_in_code_markdown_format" target="_blank" rel="noopener noreferrer nofollow" class="no-copy inline-flex items-center justify-center ms-1 text-nowrap print:hidden px-1.5 h-5 text-xs font-medium rounded-full border border-border-l1 bg-surface-l1 hover:!bg-surface-l1-hover !text-fg-secondary hover:!text-fg-primary visited:text-fg-secondary focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:bg-surface-l1-hover !no-underline hover:!no-underline citation" data-state="closed">reddit.com</a></span></p>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">For inspiration, check this dramatic cliffside overlook:</p>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">
+                  <div aria-label="50 most beautiful landscapes in the world - WTOP News" class="flex flex-col gap-1 clear-both justify-center w-fit mx-auto" data-testid="image-viewer">
+                    <div class="grid not-prose w-full">
+                      <div class="relative group/image cursor-pointer">
+                        <div class="relative rounded-lg overflow-hidden w-full" style="background-color: hsl(var(--surface-l2));"><img alt="50 most beautiful landscapes in the world - WTOP News" class="rounded-lg object-contain max-h-[448px] w-full" src="https://wtop.com/wp-content/uploads/2018/04/042718_landscape_40.jpg"></div>
+                        <div class="absolute bottom-1 right-1 opacity-0 group-hover/image:opacity-100"><a href="https://wtop.com/travel/2018/04/the-50-most-beautiful-landscapes-in-the-world/" target="_blank" rel="noopener noreferrer" class="bg-surface-l1 text-fg-primary text-xs px-2 rounded-3xl hover:bg-surface-l3 line-clamp-1"><span>wtop.com</span></a></div>
+                      </div>
+                    </div>
+                    <div><div class="text-xs text-fg-tertiary @lg/chat:pb-2 leading-normal" title="50 most beautiful landscapes in the world - WTOP News">50 most beautiful landscapes in the world - WTOP News</div></div>
+                  </div>
+                </p>
+                <p dir="auto" class="break-words last:mb-0" style="white-space: pre-wrap;">In prompts, specifying headers improves output structure. This wraps up our example—feel free to ask for more tailored demos!<a href="https://codesignal.com/learn/courses/journey-into-format-control-in-prompt-engineering/lessons/markdown-headers-in-output-formatting" target="_blank" rel="noopener noreferrer nofollow" class="no-copy inline-flex items-center justify-center ms-1 text-nowrap print:hidden px-1.5 h-5 text-xs font-medium rounded-full border border-border-l1 bg-surface-l1 hover:!bg-surface-l1-hover !text-fg-secondary hover:!text-fg-primary visited:text-fg-secondary focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:bg-surface-l1-hover !no-underline hover:!no-underline citation" data-state="closed">codesignal.com</a></p>
+              </div>
+            </div>
+            <section class="inline-media-container flex flex-col gap-1 clear-both"></section>
+            <section class="auth-notification flex flex-col gap-1"></section>
+          </div>
+        </div>
+        <div class="action-buttons h-8 mt-0.5 mb-2 flex flex-row flex-wrap w-full justify-between last-response print:hidden">
+          <div class="flex items-center gap-[2px] w-max rounded-lg text-xs px-2 start-0 @md/chat:start-3 -ml-4">
+            <button type="button" aria-label="Regenerate" data-state="closed"></button>
+            <button type="button" aria-label="Read aloud" data-state="closed"></button>
+            <button type="button" aria-label="Start thread" data-state="closed">
+              <span class="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full border px-1 text-[10px] bg-background font-medium">2</span>
+            </button>
+            <button type="button" aria-label="Copy" data-state="closed"></button>
+            <button type="button" aria-label="Like" data-state="closed"></button>
+            <button type="button" aria-label="Dislike" data-state="closed"></button>
+            <button type="button" aria-label="More actions" data-state="closed"></button>
+          </div>
+        </div>
+        <div style="height: 1px; position: absolute; bottom: 0px; z-index: 1000;"></div>
+      </div>
+
+    </div>
+  </div>
+</div>

@@ -32,3 +32,14 @@ yarn.lock
 # Ignore any other temporary files
 *.bak
 *.tmp
+
+# Ignore example files and folders
+.examples/
+
+# Ignore AI Agents documentation files
+CLAUDE.md
+AGENTS.md
+opencode.json
+
+# Ignore environment variable files (if any)
+.env
