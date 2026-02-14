@@ -817,9 +817,6 @@
       let chatIndex = 1;
 
       messageItems.forEach((item) => {
-        console.log("[Grok DOM] Message classes:", item.className, "text:", item.textContent?.slice(0, 100));
-        // Check only the bubble element's own classes, not children — AI response
-        // bubbles can contain bg-surface-l1 inside their thinking block sections.
         const isUser = item.classList.contains(GROK_HUMAN_MESSAGE_CLASS);
         const author = isUser ? "user" : "ai";
 
@@ -947,23 +944,19 @@
      */
     async fetchGrokChatDataFromAPI(conversationId) {
       try {
-        console.log("[Grok API] Starting API fetch for conversation:", conversationId);
         // Step 1: Get all response nodes (includes threadParentId for thread messages)
         const nodeRes = await fetch(GROK_API_RESPONSE_NODE(conversationId), {
           credentials: "include",
         });
-        console.log("[Grok API] response-node status:", nodeRes.status);
         if (!nodeRes.ok) {
           console.error("[Grok API] response-node fetch failed:", nodeRes.status, nodeRes.statusText);
           return null;
         }
         const nodeData = await nodeRes.json();
         const responseNodes = nodeData.responseNodes || [];
-        console.log("[Grok API] Found", responseNodes.length, "response nodes");
         if (responseNodes.length === 0) return null;
 
         const allIds = responseNodes.map((n) => n.responseId);
-        console.log("[Grok API] Response IDs:", allIds);
 
         // Step 2: Load full message content for all response IDs in one POST
         const loadRes = await fetch(GROK_API_LOAD_RESPONSES(conversationId), {
@@ -972,14 +965,12 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ responseIds: allIds }),
         });
-        console.log("[Grok API] load-responses status:", loadRes.status);
         if (!loadRes.ok) {
           console.error("[Grok API] load-responses fetch failed:", loadRes.status, loadRes.statusText);
           return null;
         }
         const loadData = await loadRes.json();
         const responses = loadData.responses || [];
-        console.log("[Grok API] Loaded", responses.length, "responses");
         if (responses.length === 0) return null;
 
         // Build a lookup map: responseId → full response object
@@ -1107,7 +1098,6 @@
           exporterVersion: EXPORTER_VERSION,
           threadUrl: window.location.href,
         };
-        console.log("[Grok API] Final chat data:", result);
         return result;
       } catch (err) {
         console.error("[Grok API] API fetch failed:", err);
@@ -2173,7 +2163,7 @@
          if (conversationId) {
            freshChatData = await ChatExporter.fetchGrokChatDataFromAPI(conversationId);
            if (!freshChatData) {
-             console.warn("[Grok Outline] API fetch failed, falling back to DOM extraction.");
+           console.log("[Grok Outline] API fetch failed, falling back to DOM extraction.");
              freshChatData = ChatExporter.extractGrokChatData(document);
            }
          } else {
