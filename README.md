@@ -12,6 +12,8 @@ This version introduces support for the Grok platform and enhances thread handli
 - **Improved Thread Detection**: Threads in Grok conversations are now properly exported with clear separators, ensuring complete conversation history.
 - **Reliable Speaker Detection**: Enhanced logic for identifying user vs. AI messages across all platforms, with special handling for Grok's unique message structure.
 
+![Grok Threaded Conversation Export](images/grok-thread-ai-exporter-v2.8.0.png)
+
 ## What's New in v2.7.0?
 
 This version focuses on enhancing cross-platform compatibility and providing a more consistent user experience.
