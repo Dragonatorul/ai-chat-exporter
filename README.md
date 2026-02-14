@@ -9,8 +9,8 @@
 This version introduces support for the Grok platform and enhances thread handling for better export accuracy.
 
 - **Grok Support**: Full support for exporting chats from Grok, including automatic loading of all conversation threads (even if not visible in the UI) via API calls.
-- **Improved Thread Detection**: Threads in Grok conversations are now properly exported with clear separators, ensuring complete conversation history.
 - **Reliable Speaker Detection**: Enhanced logic for identifying user vs. AI messages across all platforms, with special handling for Grok's unique message structure.
+- **Thread Detection**: Threads in Grok conversations are properly exported with clear separators, ensuring complete conversation history.
 
 ![Grok Threaded Conversation Export](images/grok-thread-ai-exporter-v2.8.0.png)
 
