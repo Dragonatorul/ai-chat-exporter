@@ -2373,12 +2373,6 @@
             "font-size:11px; font-weight:700; color:#5b3f87; letter-spacing:0.04em;";
           separatorDiv.appendChild(separatorLabel);
 
-          const separatorNote = document.createElement("span");
-          separatorNote.textContent = "✓ All threads exported automatically via API.";
-          separatorNote.style.cssText =
-            "font-size:10px; color:#5b8a3c; font-style:italic;";
-          separatorDiv.appendChild(separatorNote);
-
           messageListDiv.appendChild(separatorDiv);
         } else if (msg.author === "user") {
           userQuestionCount++; // Increment 'y'
