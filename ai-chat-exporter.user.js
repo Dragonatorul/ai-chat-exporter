@@ -817,6 +817,7 @@
       let chatIndex = 1;
 
       messageItems.forEach((item) => {
+        console.log("[Grok DOM] Message classes:", item.className, "text:", item.textContent?.slice(0, 100));
         // Check only the bubble element's own classes, not children — AI response
         // bubbles can contain bg-surface-l1 inside their thinking block sections.
         const isUser = item.classList.contains(GROK_HUMAN_MESSAGE_CLASS);
@@ -911,7 +912,7 @@
         tags: _parsedTitle.tags,
         author: CURRENT_PLATFORM,
         messages: messages,
-        messageCount: messages.filter((m) => m.author === "user").length,
+        messageCount: messages.filter((m) => m.author === "user").length, // Count user messages as questions
         exportedAt: new Date(),
         exporterVersion: EXPORTER_VERSION,
         threadUrl: window.location.href,
@@ -1824,7 +1825,7 @@
         });
 
         rawChatData.messages.forEach((msg, index) => {
-          if (msg.author === "ai") {
+          if (msg.author === "ai" || msg.author === "Grok") {
             let prevUserMessageId = null;
             for (let i = index - 1; i >= 0; i--) {
               if (rawChatData.messages[i].author === "user") {
