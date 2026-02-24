@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT / Claude / Copilot / Gemini / Grok AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.8.0
+// @version      2.8.1
 // @description  Export your ChatGPT, Claude, Copilot, Gemini or Grok chat into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
@@ -21,7 +21,7 @@
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.8.0";
+  const EXPORTER_VERSION = "2.8.1";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const OUTLINE_CONTAINER_ID = "export-outline-container"; // ID for the outline div
   const DOM_READY_TIMEOUT = 1000;
@@ -764,6 +764,69 @@
     },
 
     /**
+     * Extracts the active Grok conversation title from the conversation list.
+     * Falls back to the page title if no conversation entry can be resolved.
+     * @param {Document} doc - The Document object.
+     * @param {string|null} conversationId - Current conversation ID.
+     * @returns {string} Resolved raw title.
+     */
+    extractGrokConversationTitle(doc, conversationId) {
+      const normalizeText = (text) => (text || "").replace(/\s+/g, " ").trim();
+      const stripTrailingMeta = (text) =>
+        normalizeText(text)
+          .replace(
+            /\s*\d+\s*(?:sec(?:ond)?s?|min(?:ute)?s?|hour(?:s)?|day(?:s)?|week(?:s)?|month(?:s)?|year(?:s)?)\s+ago$/i,
+            ""
+          )
+          .replace(/\s*(?:just now|today|yesterday)$/i, "")
+          .replace(/\s*ctrl\+[a-z0-9]+$/i, "")
+          .trim();
+      const isValidTitle = (text) =>
+        !!text &&
+        text.length > 4 &&
+        text.length < 200 &&
+        !/^(chat|home|voice|imagine|projects?|history|pinned|new conversation)$/i.test(text) &&
+        !/^\d+\s*(?:sec(?:ond)?s?|min(?:ute)?s?|hour(?:s)?|day(?:s)?|week(?:s)?|month(?:s)?|year(?:s)?)\s+ago$/i.test(
+          text
+        );
+      const getTitleLikeText = (el) => {
+        if (!el) return "";
+        const titleElement =
+          el.querySelector("span.truncate") ||
+          el.querySelector('[class*="conversation-title"]') ||
+          el.querySelector('[class*="text-fg-primary"]') ||
+          el.querySelector('[class*="truncate"]');
+        return stripTrailingMeta(titleElement?.textContent || el.textContent || "");
+      };
+
+      if (conversationId) {
+        const candidateLinks = doc.querySelectorAll(
+          `a[href*="/c/${conversationId}"]`
+        );
+
+        for (const link of candidateLinks) {
+          const directText = stripTrailingMeta(link.textContent);
+          if (isValidTitle(directText)) return directText;
+
+          const siblingText = getTitleLikeText(link.nextElementSibling);
+          if (isValidTitle(siblingText)) return siblingText;
+
+          const parentText = getTitleLikeText(link.parentElement);
+          if (isValidTitle(parentText)) return parentText;
+        }
+      }
+
+      const pageTitle = (doc.title || "")
+        .replace(/\s*[-|]\s*(Grok|X|Chat).*$/i, "")
+        .trim();
+      if (pageTitle && pageTitle.length > 0 && pageTitle.length < 200) {
+        return pageTitle;
+      }
+
+      return DEFAULT_CHAT_TITLE;
+    },
+
+    /**
      * Extracts chat data from Grok's DOM structure.
      * @param {Document} doc - The Document object.
      * @returns {object|null} The standardized chat data, or null.
@@ -780,38 +843,13 @@
 
       if (messageItems.length === 0) return null;
 
-      // Title extraction: sidebar link > page title > fallback
-      let rawTitle = DEFAULT_CHAT_TITLE;
       const conversationId =
         window.location.pathname.match(/\/c\/([^/?]+)/)?.[1] ||
         new URLSearchParams(window.location.search).get("chat");
-
-      if (conversationId) {
-        const candidateLinks = doc.querySelectorAll(
-          `a[href*="/c/${conversationId}"]`
-        );
-        for (const link of candidateLinks) {
-          const text = link.textContent?.trim();
-          if (
-            text &&
-            text.length > 4 &&
-            text.length < 200 &&
-            !/^(chat|home|voice|imagine|projects?)$/i.test(text)
-          ) {
-            rawTitle = text;
-            break;
-          }
-        }
-      }
-
-      if (rawTitle === DEFAULT_CHAT_TITLE) {
-        const pageTitle = (doc.title || "")
-          .replace(/\s*[-|]\s*(Grok|X|Chat).*$/i, "")
-          .trim();
-        if (pageTitle && pageTitle.length > 0 && pageTitle.length < 200) {
-          rawTitle = pageTitle;
-        }
-      }
+      const rawTitle = ChatExporter.extractGrokConversationTitle(
+        doc,
+        conversationId
+      );
 
       const messages = [];
       let chatIndex = 1;
@@ -999,27 +1037,10 @@
             threadGroups.get(n.threadParentId).push(n);
           });
 
-        // Extract title from DOM (same logic as DOM-based extractor)
-        let rawTitle = DEFAULT_CHAT_TITLE;
-        const candidateLinks = document.querySelectorAll(
-          `a[href*="/c/${conversationId}"]`
+        const rawTitle = ChatExporter.extractGrokConversationTitle(
+          document,
+          conversationId
         );
-        for (const link of candidateLinks) {
-          const text = link.textContent?.trim();
-          if (text && text.length > 4 && text.length < 200 &&
-              !/^(chat|home|voice|imagine|projects?)$/i.test(text)) {
-            rawTitle = text;
-            break;
-          }
-        }
-        if (rawTitle === DEFAULT_CHAT_TITLE) {
-          const pageTitle = (document.title || "")
-            .replace(/\s*[-|]\s*(Grok|X|Chat).*$/i, "")
-            .trim();
-          if (pageTitle && pageTitle.length > 0 && pageTitle.length < 200) {
-            rawTitle = pageTitle;
-          }
-        }
 
         const messages = [];
         let chatIndex = 1;
