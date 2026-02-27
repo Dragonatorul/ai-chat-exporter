@@ -1,8 +1,17 @@
-# ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter by RevivalStack (v2.8.0)
+# ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter by RevivalStack (v2.9.0)
 
 **ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from **ChatGPT**, **Claude**, **Copilot**, **Google Gemini**, and **Grok** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
 
 ![ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter](images/chatgpt-gemini-ai-exporter.png)
+
+## What's New in v2.9.0?
+
+This release improves Claude export fidelity for inline artifacts, artifact previews, and richer message extraction.
+
+- **Claude Inline Panel Variants**: Captures inline assistant draft panel variants (including labels and version content) from Claude, with API-backed extraction and DOM fallback support.
+- **Artifact Preview + Full Content Export**: Adds structured export of Claude artifact previews, full artifact text, and artifact version groups in both Markdown and JSON.
+- **Improved Claude Message Parsing**: Updates Claude selectors and content filtering to better handle current Claude DOM structures, including user-message variants and embedded content.
+- **Reference DOM Updates**: Refreshes Claude reference DOM snapshots to reflect the latest UI structure used for selector validation.
 
 ## What's New in v2.8.0?
 
@@ -105,7 +114,7 @@ title: Chat with ChatGPT
 tags: [testchat, docs]
 author: chatgpt
 count: 3
-exporter: 2.8.0
+exporter: 2.9.0
 date: 2025-07-31T17-47-00+0800
 url: https://chatgpt.com/c/...
 ---

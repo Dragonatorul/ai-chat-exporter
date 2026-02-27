@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT / Claude / Copilot / Gemini / Grok AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.8.1
+// @version      2.9.0
 // @description  Export your ChatGPT, Claude, Copilot, Gemini or Grok chat into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
@@ -21,7 +21,7 @@
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.8.1";
+  const EXPORTER_VERSION = "2.9.0";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const OUTLINE_CONTAINER_ID = "export-outline-container"; // ID for the outline div
   const DOM_READY_TIMEOUT = 1000;
@@ -240,10 +240,19 @@
   const CLAUDE = "claude";
   const CLAUDE_HOSTNAMES = ["claude.ai"];
   const CLAUDE_MESSAGE_SELECTOR =
-    ".font-claude-message:not(#markdown-artifact), .font-user-message";
+    '[data-testid="user-message"], .font-user-message, .\\!font-user-message, .font-claude-message:not(#markdown-artifact), .font-claude-response';
   const CLAUDE_USER_MESSAGE_CLASS = "font-user-message";
+  const CLAUDE_USER_MESSAGE_CLASS_BANG = "!font-user-message";
+  const CLAUDE_USER_MESSAGE_TEST_ID = "user-message";
+  const CLAUDE_RESPONSE_CLASS = "font-claude-response";
   const CLAUDE_THINKING_BLOCK_CLASS = "transition-all";
   const CLAUDE_ARTIFACT_BLOCK_CELL = ".artifact-block-cell";
+  const CLAUDE_INLINE_PANEL_SELECTOR = "div.pl-2.pt-1.pb-2 > div";
+  const CLAUDE_ARTIFACT_PREVIEW_BUTTON_SELECTOR =
+    '[aria-label="Preview contents"], button, [role="button"]';
+  const CLAUDE_ARTIFACT_FULL_CLASS = "ai-exporter-markdown-artifact";
+  const CLAUDE_INLINE_VARIANTS_CLASS = "ai-exporter-inline-panel-variants";
+  const CLAUDE_INLINE_VARIANT_ITEM_CLASS = "ai-exporter-inline-panel-variant";
 
   const COPILOT = "copilot";
   const COPILOT_HOSTNAMES = ["copilot.microsoft.com"];
@@ -537,6 +546,9 @@
   const ChatExporter = {
     _currentChatData: null, // Store the last extracted chat data
     _selectedMessageIds: new Set(), // Store IDs of selected messages for export
+    // Cache keyed by conversation UUID -> array indexed by AI message order (0-based)
+    // Each entry: { title: string, variants: [{ label, body }] } | null
+    _claudeApiCache: {},
 
     /**
      * Extracts chat data from ChatGPT's DOM structure.
@@ -618,42 +630,155 @@
 
       const messages = [];
       let chatIndex = 1;
-      const chatTitle = doc.title || DEFAULT_CHAT_TITLE;
+      let aiMessageIndex = 0; // 0-based index into API cache per AI message
+      const chatTitle = ChatExporter.extractClaudeConversationTitle(doc);
 
       messageItems.forEach((item) => {
-        const isUser = item.classList.contains(CLAUDE_USER_MESSAGE_CLASS);
+        const isUser =
+          item.classList.contains(CLAUDE_USER_MESSAGE_CLASS) ||
+          item.classList.contains(CLAUDE_USER_MESSAGE_CLASS_BANG) ||
+          item.getAttribute("data-testid") === CLAUDE_USER_MESSAGE_TEST_ID;
         const author = isUser ? "user" : "ai";
 
         let messageContentHtml = null;
         let messageContentText = "";
+        let artifactPreview = [];
+        let artifactFull = [];
+        let artifactVariants = [];
 
         if (isUser) {
           // For user messages, the entire div is the content
           messageContentHtml = item;
           messageContentText = item.innerText.trim();
         } else {
-          // For Claude messages, we need to filter out "thinking" blocks
           const claudeResponseContent = document.createElement("div");
-          Array.from(item.children).forEach((child) => {
-            const isThinkingBlock = child.className.includes(
-              CLAUDE_THINKING_BLOCK_CLASS
-            );
-            const isArtifactBlock =
-              (child.className.includes("pt-3") &&
-                child.className.includes("pb-3")) ||
-              child.querySelector(CLAUDE_ARTIFACT_BLOCK_CELL);
+          const responseClone = item.cloneNode(true);
 
-            // Only consider non-thinking, non-artifact blocks
-            if (!isThinkingBlock && !isArtifactBlock) {
-              const contentGrid = child.querySelector(".grid-cols-1");
-              if (contentGrid) {
-                // We will use the existing TurndownService to process this content
-                claudeResponseContent.appendChild(contentGrid.cloneNode(true));
-              }
+          responseClone
+            .querySelectorAll(
+              '[data-testid^="action-bar-"], [role="status"], [aria-live], button[aria-label="Copy"], button[aria-label="Retry"], button[aria-label="Edit"]'
+            )
+            .forEach((el) => el.remove());
+
+          responseClone.querySelectorAll("*").forEach((el) => {
+            const className = el.className || "";
+            if (
+              typeof className === "string" &&
+              className.includes("text-text-300") &&
+              className.includes("!font-base")
+            ) {
+              el.remove();
             }
           });
+
+          // Replace each inline panel with a placeholder <p> so its position is
+          // preserved in the markdown output after TurndownService conversion.
+          let inlinePanelMarkerCount = 0;
+          Array.from(
+            responseClone.querySelectorAll(CLAUDE_INLINE_PANEL_SELECTOR)
+          )
+            .filter((panel) => panel.querySelector('[role="textbox"], textarea'))
+            .forEach((panel) => {
+              const marker = responseClone.ownerDocument.createElement("p");
+              marker.textContent = `%%INLINE_PANEL_${inlinePanelMarkerCount++}%%`;
+              panel.parentNode.replaceChild(marker, panel);
+            });
+
+          const richContentBlocks = Array.from(
+            responseClone.querySelectorAll(
+              `.standard-markdown, .progressive-markdown, .artifact-block-cell, #markdown-artifact, .${CLAUDE_ARTIFACT_FULL_CLASS}, iframe, p`
+            )
+          ).filter((node) => {
+            // Only include <p> nodes that are our placeholder markers
+            if (node.tagName === "P") {
+              return /^%%INLINE_PANEL_\d+%%$/.test((node.textContent || "").trim());
+            }
+            return true;
+          });
+
+          const dedupedBlocks = richContentBlocks.filter((node, index, arr) => {
+            return !arr.some((otherNode, otherIndex) => {
+              return otherIndex !== index && otherNode.contains(node);
+            });
+          });
+
+          const visibleAnswerBlocks = dedupedBlocks.filter((node) => {
+            if (node.tagName === "P") return true; // always keep placeholders
+            const isToolSummaryBlock =
+              !!node.closest('[class*="text-text-300"]') &&
+              !node.closest('[class*="row-start-2"]');
+            return !isToolSummaryBlock;
+          });
+
+          const fullArtifactNodes = Array.from(
+            responseClone.querySelectorAll(`.${CLAUDE_ARTIFACT_FULL_CLASS}`)
+          );
+          const blocksToAppend = [...visibleAnswerBlocks];
+          fullArtifactNodes.forEach((node) => {
+            if (!blocksToAppend.includes(node)) {
+              blocksToAppend.push(node);
+            }
+          });
+
+          if (blocksToAppend.length > 0) {
+            blocksToAppend.forEach((node) => {
+              const clonedNode = node.cloneNode(true);
+              if (
+                clonedNode.classList &&
+                clonedNode.classList.contains(CLAUDE_ARTIFACT_FULL_CLASS)
+              ) {
+                clonedNode.style.display = "";
+              }
+              claudeResponseContent.appendChild(clonedNode);
+            });
+          } else {
+            Array.from(responseClone.children).forEach((child) => {
+              const isThinkingBlock = child.className.includes(
+                CLAUDE_THINKING_BLOCK_CLASS
+              );
+
+              if (isThinkingBlock) return;
+
+              const contentBlocks = child.querySelectorAll(
+                `.grid-cols-1, .artifact-block-cell, #markdown-artifact, .${CLAUDE_ARTIFACT_FULL_CLASS}, iframe`
+              );
+              contentBlocks.forEach((contentBlock) => {
+                claudeResponseContent.appendChild(contentBlock.cloneNode(true));
+              });
+            });
+          }
+
           messageContentHtml = claudeResponseContent;
           messageContentText = claudeResponseContent.innerText.trim();
+          artifactPreview =
+            ChatExporter.extractClaudeArtifactPreviewData(claudeResponseContent);
+          artifactFull =
+            ChatExporter.extractClaudeArtifactFullData(claudeResponseContent);
+          const inlineArtifactData =
+            ChatExporter.extractClaudeInlinePanelData(responseClone, aiMessageIndex);
+          artifactPreview = artifactPreview.concat(inlineArtifactData.preview);
+          artifactFull = artifactFull.concat(inlineArtifactData.full);
+          artifactVariants = artifactVariants.concat(inlineArtifactData.versions);
+
+          artifactPreview = ChatExporter.dedupeByStableKey(
+            artifactPreview,
+            (item) => `${item.title || ""}|${item.type || ""}|${item.preview || ""}`
+          );
+          artifactFull = ChatExporter.dedupeByStableKey(
+            artifactFull,
+            (item) => item
+          );
+          artifactVariants = ChatExporter.dedupeByStableKey(
+            artifactVariants,
+            (item) => {
+              const title = item.title || "";
+              const body = (item.versions || [])
+                .map((v) => `${v.label || ""}:${v.content || ""}`)
+                .join("||");
+              return `${title}|${body}`;
+            }
+          );
+          aiMessageIndex++;
         }
 
         if (messageContentText) {
@@ -666,6 +791,16 @@
             author: author,
             contentHtml: messageContentHtml,
             contentText: messageContentText,
+            ...(artifactPreview.length > 0
+              ? { artifactPreview: artifactPreview }
+              : {}),
+            ...(artifactFull.length > 0 ? { artifactFull: artifactFull } : {}),
+            ...(artifactVariants.length > 0
+              ? {
+                  artifactVariants: artifactVariants,
+                  artifactversions: artifactVariants,
+                }
+              : {}),
             timestamp: new Date(),
             originalIndex: chatIndex,
           });
@@ -686,6 +821,427 @@
         exportedAt: new Date(),
         exporterVersion: EXPORTER_VERSION,
         threadUrl: window.location.href,
+      };
+    },
+
+    extractClaudeConversationTitle(doc) {
+      const normalize = (text) => (text || "").replace(/\s+/g, " ").trim();
+      const isValid = (text) => {
+        if (!text) return false;
+        if (text.length < 4 || text.length > 220) return false;
+        return !/^(claude|new chat|search|projects?|artifacts?|share|customize)$/i.test(
+          text
+        );
+      };
+
+      const docTitle = normalize((doc.title || "").replace(/\s*-\s*Claude\s*$/i, ""));
+      if (isValid(docTitle) && !/^claude$/i.test(docTitle)) {
+        return docTitle;
+      }
+
+      const path = window.location.pathname;
+      if (/\/chat\//.test(path)) {
+        const activeLink = doc.querySelector(
+          `a[href*="${path}"]`
+        );
+        const activeLinkText = normalize(activeLink?.textContent || "");
+        if (isValid(activeLinkText)) {
+          return activeLinkText;
+        }
+      }
+
+      const bannerButtonTexts = Array.from(
+        doc.querySelectorAll('[role="banner"] button, header button')
+      )
+        .map((el) => normalize(el.textContent || ""))
+        .filter((text) => isValid(text));
+      if (bannerButtonTexts.length > 0) {
+        return bannerButtonTexts[bannerButtonTexts.length - 1];
+      }
+
+      return DEFAULT_CHAT_TITLE;
+    },
+
+    extractClaudeArtifactPreviewData(rootNode) {
+      if (!rootNode) return [];
+      return Array.from(rootNode.querySelectorAll(CLAUDE_ARTIFACT_BLOCK_CELL)).map(
+        (node) => {
+          const title =
+            node.querySelector(".leading-tight.text-sm")?.textContent?.trim() ||
+            "Artifact";
+          const type =
+            node.querySelector('[class*="text-text-300"]')?.textContent?.trim() ||
+            "";
+          const preview =
+            node
+              .querySelector(".artifact-block-cell-preview")
+              ?.textContent?.replace(/\s+/g, " ")
+              .trim() || "";
+          return {
+            title: title,
+            type: type,
+            preview: preview,
+          };
+        }
+      );
+    },
+
+    extractClaudeArtifactFullData(rootNode) {
+      if (!rootNode) return [];
+      return Array.from(
+        rootNode.querySelectorAll(
+          `#markdown-artifact, .${CLAUDE_ARTIFACT_FULL_CLASS}`
+        )
+      )
+        .map((node) => (node.innerText || "").trim())
+        .filter((text) => text.length > 0);
+    },
+
+    dedupeByStableKey(items, getKey) {
+      const seen = new Set();
+      return (items || []).filter((item) => {
+        const key = getKey(item);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    },
+
+    extractClaudeInlinePanelData(rootNode, aiMessageIndex) {
+      if (!rootNode) return { preview: [], full: [], versions: [] };
+
+      // --- API cache path (preferred: no DOM clicks needed) ---
+      const convMatch = window.location.pathname.match(/\/chat\/([0-9a-f-]+)/);
+      if (convMatch !== null && typeof aiMessageIndex === "number") {
+        const convId = convMatch[1];
+        const apiEntry = (ChatExporter._claudeApiCache[convId] || [])[aiMessageIndex];
+        if (apiEntry && Array.isArray(apiEntry.variants) && apiEntry.variants.length > 0) {
+          // API labels are already clean (e.g. "Warm & qualified") — no letter-prefix normalization needed
+          const variantLabels = apiEntry.variants
+            .map((v) => (v.label || "Option").trim())
+            .join(" || ");
+          const mappedVersions = apiEntry.variants.map((v) => ({
+            label: (v.label || "Option").trim(),
+            content: v.body,
+          }));
+          return {
+            preview: [{
+              title: apiEntry.title,
+              type: "Inline panel",
+              preview: variantLabels,
+            }],
+            full: [],
+            versions: [{
+              title: apiEntry.title,
+              versions: mappedVersions,
+            }],
+          };
+        }
+      }
+
+      // --- DOM fallback path ---
+      const panels = Array.from(
+        rootNode.querySelectorAll(CLAUDE_INLINE_PANEL_SELECTOR)
+      ).filter((panel) => panel.querySelector('[role="textbox"], textarea'));
+
+      const preview = [];
+      const full = [];
+      const versions = [];
+
+      const normalizeVariantLabel = (rawLabel) => {
+        const compact = (rawLabel || "").replace(/\s+/g, " ").trim();
+        const match = compact.match(/^([A-Z])\s*(.+)$/);
+        if (match) {
+          return `Option ${match[1]} - ${match[2]}`;
+        }
+        return compact || "Option";
+      };
+
+      panels.forEach((panel) => {
+        const optionLabels = Array.from(
+          panel.querySelectorAll(":scope > div:first-child button")
+        )
+          .map((button) => (button.innerText || "").replace(/\s+/g, " ").trim())
+          .filter((text) => text.length > 0)
+          .map((text) => normalizeVariantLabel(text))
+          .filter((text) => text.length > 0)
+          .slice(0, 8)
+          .join(" || ");
+        const draftText = (
+          panel.querySelector("textarea")?.value ||
+          panel.querySelector('[role="textbox"]')?.innerText ||
+          ""
+        ).trim();
+
+        preview.push({
+          title: "Inline assistant draft panel",
+          type: "Inline panel",
+          preview: optionLabels || "No option labels",
+        });
+
+        const cachedVersions = Array.from(
+          panel.querySelectorAll(
+            `.${CLAUDE_INLINE_VARIANTS_CLASS} .${CLAUDE_INLINE_VARIANT_ITEM_CLASS}`
+          )
+        )
+          .map((node) => ({
+            label: (node.getAttribute("data-label") || "Version").trim(),
+            content: (node.textContent || "").trim(),
+          }))
+          .filter((entry) => entry.content.length > 0);
+
+        if (cachedVersions.length > 0) {
+          const uniqueVersions = ChatExporter.dedupeByStableKey(
+            cachedVersions,
+            (entry) => `${entry.label}|${entry.content}`
+          );
+          versions.push({
+            title: "Inline assistant draft panel",
+            versions: uniqueVersions,
+          });
+        } else if (draftText) {
+          full.push(draftText);
+        }
+      });
+
+      return { preview, full, versions };
+    },
+
+    async cacheClaudeArtifactFullContent() {
+      if (CURRENT_PLATFORM !== CLAUDE) return;
+
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const artifactCards = Array.from(
+        document.querySelectorAll(CLAUDE_ARTIFACT_BLOCK_CELL)
+      );
+
+      for (const artifactCard of artifactCards) {
+        try {
+          if (artifactCard.querySelector(`.${CLAUDE_ARTIFACT_FULL_CLASS}`)) {
+            continue;
+          }
+
+          const openTrigger =
+            artifactCard.closest('[aria-label="Preview contents"]') ||
+            artifactCard.closest("button") ||
+            artifactCard.closest('[role="button"]');
+
+          if (!openTrigger) continue;
+
+          openTrigger.click();
+          await sleep(300);
+
+          const fullArtifact =
+            document.querySelector("#markdown-artifact") ||
+            document.querySelector(
+              '[role="dialog"] .font-claude-response, [aria-modal="true"] .font-claude-response'
+            );
+          if (fullArtifact) {
+            const fullClone = fullArtifact.cloneNode(true);
+            fullClone.removeAttribute("id");
+            fullClone.classList.add(CLAUDE_ARTIFACT_FULL_CLASS);
+            fullClone.style.display = "none";
+            artifactCard.appendChild(fullClone);
+          }
+
+          document.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Escape",
+              code: "Escape",
+              bubbles: true,
+            })
+          );
+          await sleep(120);
+        } catch (error) {
+          console.warn("Failed to cache Claude artifact content:", error);
+        }
+      }
+    },
+
+    async cacheClaudeInlinePanelVariants() {
+      if (CURRENT_PLATFORM !== CLAUDE) return;
+
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const panels = Array.from(
+        document.querySelectorAll(CLAUDE_INLINE_PANEL_SELECTOR)
+      ).filter((panel) => panel.querySelector('[role="textbox"], textarea'));
+
+      const normalizeVariantLabel = (rawLabel) => {
+        const compact = (rawLabel || "").replace(/\s+/g, " ").trim();
+        const match = compact.match(/^([A-Z])\s*(.+)$/);
+        if (match) {
+          return `Option ${match[1]} - ${match[2]}`;
+        }
+        return compact || "Option";
+      };
+
+      for (const panel of panels) {
+        try {
+          if (panel.querySelector(`.${CLAUDE_INLINE_VARIANTS_CLASS}`)) {
+            continue;
+          }
+
+          const optionButtons = Array.from(
+            panel.querySelectorAll(":scope > div:first-child button")
+          ).filter((button) => {
+            const label = (button.innerText || "").replace(/\s+/g, " ").trim();
+            return label.length > 0;
+          });
+          if (optionButtons.length === 0) continue;
+
+          const initialDraft = (
+            panel.querySelector("textarea")?.value ||
+            panel.querySelector('[role="textbox"]')?.innerText ||
+            ""
+          ).trim();
+
+          const captured = [];
+          for (const button of optionButtons) {
+            button.click();
+            await sleep(300);
+
+            const label = normalizeVariantLabel(button.innerText || "");
+            const content = (
+              panel.querySelector("textarea")?.value ||
+              panel.querySelector('[role="textbox"]')?.innerText ||
+              ""
+            ).trim();
+            if (!content) continue;
+
+            if (!captured.some((entry) => entry.label === label && entry.content === content)) {
+              captured.push({ label, content });
+            }
+          }
+
+          const matchingInitial = captured.find(
+            (entry) => entry.content === initialDraft
+          );
+          if (matchingInitial) {
+            const initialButton = optionButtons.find(
+              (button) =>
+                normalizeVariantLabel(button.innerText || "") ===
+                matchingInitial.label
+            );
+            if (initialButton) {
+              initialButton.click();
+              await sleep(100);
+            }
+          }
+
+          if (captured.length === 0) continue;
+
+          const cacheContainer = document.createElement("div");
+          cacheContainer.className = CLAUDE_INLINE_VARIANTS_CLASS;
+          cacheContainer.style.display = "none";
+
+          captured.forEach((entry) => {
+            const item = document.createElement("div");
+            item.className = CLAUDE_INLINE_VARIANT_ITEM_CLASS;
+            item.setAttribute("data-label", normalizeVariantLabel(entry.label));
+            item.textContent = entry.content;
+            cacheContainer.appendChild(item);
+          });
+
+          panel.appendChild(cacheContainer);
+        } catch (error) {
+          console.warn("Failed to cache Claude inline panel variants:", error);
+        }
+      }
+    },
+
+    /**
+     * Parses a Claude conversation API response and populates _claudeApiCache
+     * for the given conversation UUID.
+     */
+    _parseClaudeApiResponse(conversationId, responseJson) {
+      try {
+        const messages = responseJson.chat_messages || [];
+        const byAiIndex = [];
+        for (const msg of messages) {
+          if (msg.sender !== "assistant") continue;
+          const composeBlock = (msg.content || []).find(
+            (b) => b.type === "tool_use" && b.name === "message_compose_v1"
+          );
+          if (composeBlock && Array.isArray(composeBlock.input?.variants)) {
+            byAiIndex.push({
+              title: composeBlock.input.summary_title || "Inline assistant draft panel",
+              variants: composeBlock.input.variants.map((v) => ({
+                label: (v.label || "").trim(),
+                body: (v.body || "").trim(),
+              })),
+            });
+          } else {
+            byAiIndex.push(null);
+          }
+        }
+        ChatExporter._claudeApiCache[conversationId] = byAiIndex;
+      } catch (e) {
+        console.warn("[Claude API cache] Failed to parse response:", e);
+      }
+    },
+
+    /**
+     * Fetches Claude conversation API data and populates _claudeApiCache.
+     * Called before initial extraction and before export to ensure API data is available.
+     */
+    async fetchClaudeConversationApiData() {
+      const match = window.location.pathname.match(/\/chat\/([0-9a-f-]+)/);
+      if (!match) return;
+      const conversationId = match[1];
+      if (ChatExporter._claudeApiCache[conversationId]) return; // already cached
+
+      const orgMatch = document.cookie.match(/lastActiveOrg=([0-9a-f-]+)/);
+      if (!orgMatch) return;
+      const orgId = orgMatch[1];
+
+      try {
+        const res = await fetch(
+          `/api/organizations/${orgId}/chat_conversations/${conversationId}?tree=True&rendering_mode=messages&render_all_tools=true&consistency=eventual`,
+          { headers: { "content-type": "application/json" } }
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        ChatExporter._parseClaudeApiResponse(conversationId, data);
+      } catch (e) {
+        console.warn("[Claude API cache] Direct fetch failed:", e);
+      }
+    },
+
+    syncClaudeDataWithExistingIds(existingChatData, freshChatData) {
+      if (!existingChatData || !freshChatData) return existingChatData;
+
+      const toKey = (msg) => {
+        const preview = (msg.contentText || "").replace(/\s+/g, " ").trim().slice(0, 120);
+        return `${msg.author}|${msg.originalIndex}|${preview}`;
+      };
+
+      const freshByKey = new Map();
+      freshChatData.messages.forEach((msg) => {
+        freshByKey.set(toKey(msg), msg);
+      });
+
+      const mergedMessages = existingChatData.messages.map((existingMsg) => {
+        const freshMsg = freshByKey.get(toKey(existingMsg));
+        if (!freshMsg) return existingMsg;
+        return {
+          ...existingMsg,
+          contentHtml: freshMsg.contentHtml,
+          contentText: freshMsg.contentText,
+          artifactPreview: freshMsg.artifactPreview || [],
+          artifactFull: freshMsg.artifactFull || [],
+          artifactVariants: freshMsg.artifactVariants || [],
+          artifactversions: freshMsg.artifactVariants || [],
+        };
+      });
+
+      return {
+        ...existingChatData,
+        _raw_title: freshChatData._raw_title || existingChatData._raw_title,
+        title: freshChatData.title || existingChatData.title,
+        tags: Array.isArray(freshChatData.tags)
+          ? freshChatData.tags
+          : existingChatData.tags,
+        messages: mergedMessages,
       };
     },
 
@@ -1271,7 +1827,97 @@
               markdownContent = `[CONVERSION ERROR: Failed to render this section. Original content below]\n\n\`\`\`\n${msg.contentText}\n\`\`\`\n`;
             }
           }
-          content += "\n\n###### AI said:\n\n" + markdownContent + "\n\n" + MARKDOWN_BACK_TO_TOP_LINK;
+
+          // Replace inline panel placeholders with a link to the versions section
+          if (Array.isArray(msg.artifactVariants) && msg.artifactVariants.length > 0) {
+            markdownContent = markdownContent.replace(
+              /%%INLINE_PANEL_(\d+)%%/g,
+              (_, idx) => {
+                const group = msg.artifactVariants[Number(idx)] || msg.artifactVariants[0];
+                const groupTitle = group ? group.title || `Inline Artifact ${Number(idx) + 1}` : "Inline panel";
+                const anchor = groupTitle
+                  .toLowerCase()
+                  .replace(/[^\w\s-]/g, "")
+                  .replace(/\s+/g, "-");
+                const variantLabels = (group.versions || [])
+                  .map((v) => v.label || "Version")
+                  .join(" / ");
+                return `*[Inline draft panel: ${variantLabels} — [See versions below](#${anchor})]*`;
+              }
+            );
+          } else {
+            // No versions captured — just remove the placeholder cleanly
+            markdownContent = markdownContent.replace(/%%INLINE_PANEL_\d+%%/g, "");
+          }
+
+          let artifactSections = "";
+          if (Array.isArray(msg.artifactPreview) && msg.artifactPreview.length > 0) {
+            const hasVersions =
+              Array.isArray(msg.artifactVariants) && msg.artifactVariants.length > 0;
+            const previewBlock = msg.artifactPreview
+              .map((artifact, idx) => {
+                const artifactType = artifact.type ? ` (${artifact.type})` : "";
+                const previewText = artifact.preview
+                  ? `\n\n\`\`\`text\n${artifact.preview}\n\`\`\``
+                  : "";
+                // Build a link to the versions section anchor if versions are available
+                let versionsLink = "";
+                if (hasVersions) {
+                  const matchingGroup =
+                    (msg.artifactVariants || [])[idx] || msg.artifactVariants[0];
+                  const groupTitle = matchingGroup
+                    ? matchingGroup.title || `Inline Artifact ${idx + 1}`
+                    : artifact.title;
+                  const anchor = groupTitle
+                    .toLowerCase()
+                    .replace(/[^\w\s-]/g, "")
+                    .replace(/\s+/g, "-");
+                  versionsLink = ` → [See versions](#${anchor})`;
+                }
+                return `-----\n\n- Artifact ${idx + 1}: ${artifact.title}${artifactType}${versionsLink}${previewText}`;
+              })
+              .join("\n");
+            artifactSections += `\n\n#### Artifact Preview\n\n${previewBlock}`;
+          }
+
+          if (Array.isArray(msg.artifactFull) && msg.artifactFull.length > 0) {
+            const fullBlock = msg.artifactFull
+              .map(
+                (artifactText, idx) =>
+                  `-----\n\n##### Artifact Full ${idx + 1}\n\n\`\`\`markdown\n${artifactText}\n\`\`\``
+              )
+              .join("\n\n");
+            artifactSections += `\n\n#### Artifact Full\n\n${fullBlock}`;
+          }
+
+          if (
+            Array.isArray(msg.artifactVariants) &&
+            msg.artifactVariants.length > 0
+          ) {
+            const variantsBlock = msg.artifactVariants
+              .map((group, groupIdx) => {
+                const versionBlock = (group.versions || [])
+                  .map(
+                    (version, versionIdx) =>
+                      `-----\n\n##### ${group.title || `Inline Artifact ${groupIdx + 1}`}\n\n###### Version ${versionIdx + 1}: ${version.label || "Version"}\n\n\`\`\`markdown\n${version.content || ""}\n\`\`\``
+                  )
+                  .join("\n\n");
+                return versionBlock;
+              })
+              .filter((block) => block.length > 0)
+              .join("\n\n");
+
+            if (variantsBlock) {
+              artifactSections += `\n\n#### Artifact Versions\n\n${variantsBlock}`;
+            }
+          }
+
+          content +=
+            "\n\n###### AI said:\n\n" +
+            markdownContent +
+            artifactSections +
+            "\n\n" +
+            MARKDOWN_BACK_TO_TOP_LINK;
         }
       });
 
@@ -1340,6 +1986,25 @@
             id: msg.id.split("-").slice(0, 2).join("-"),
             author: msg.author,
             content: processMessageContent(msg),
+            ...(Array.isArray(msg.artifactPreview) && msg.artifactPreview.length > 0
+              ? {
+                  artifactPreview: msg.artifactPreview,
+                  artifactpreview: msg.artifactPreview,
+                }
+              : {}),
+            ...(Array.isArray(msg.artifactFull) && msg.artifactFull.length > 0
+              ? {
+                  artifactFull: msg.artifactFull,
+                  artifactfull: msg.artifactFull,
+                }
+              : {}),
+            ...(Array.isArray(msg.artifactVariants) &&
+            msg.artifactVariants.length > 0
+              ? {
+                  artifactVariants: msg.artifactVariants,
+                  artifactversions: msg.artifactVariants,
+                }
+              : {}),
             ...(msg.isThread ? { thread: true } : {}),
           })),
       };
@@ -1536,6 +2201,45 @@
 
             return "\n\n```" + language + "\n" + codeText + "\n```\n\n";
           },
+        });
+
+        turndownServiceInstance.addRule("claudeArtifactPreviewCard", {
+          filter: (node) =>
+            node.nodeName === "DIV" &&
+            node.classList &&
+            node.classList.contains("artifact-block-cell"),
+          replacement: (content, node) => {
+            const title =
+              node.querySelector(".leading-tight.text-sm")?.textContent?.trim() ||
+              "Artifact";
+            const type =
+              node.querySelector('[class*="text-text-300"]')?.textContent?.trim() ||
+              "";
+            const previewText =
+              node
+                .querySelector(".artifact-block-cell-preview")
+                ?.textContent?.replace(/\s+/g, " ")
+                .trim() ||
+              "";
+
+            let block = `\n\n#### Artifact Preview: ${title}\n`;
+            if (type) {
+              block += `\nType: ${type}\n`;
+            }
+            if (previewText) {
+              block += `\n\`\`\`text\n${previewText}\n\`\`\`\n`;
+            }
+            return block + "\n";
+          },
+        });
+
+        turndownServiceInstance.addRule("claudeArtifactFull", {
+          filter: (node) =>
+            node.nodeName === "DIV" &&
+            ((node.getAttribute && node.getAttribute("id") === "markdown-artifact") ||
+              (node.classList &&
+                node.classList.contains(CLAUDE_ARTIFACT_FULL_CLASS))),
+          replacement: (content) => `\n\n#### Artifact Full Content\n\n${content}\n\n`,
         });
       }
 
@@ -1764,6 +2468,14 @@
           return src ? `![${alt}](${src})` : "";
         },
       });
+
+      turndownServiceInstance.addRule("iframes", {
+        filter: (node) => node.nodeName === "IFRAME",
+        replacement: (content, node) => {
+          const src = node.getAttribute("src") || "";
+          return src ? `[Embedded content](${src})` : "";
+        },
+      });
     },
 
     /**
@@ -1772,6 +2484,28 @@
      * @param {string} format - The desired output format ('markdown' or 'json').
      */
     async initiateExport(format) {
+      if (CURRENT_PLATFORM === CLAUDE) {
+        // Ensure API cache is populated (fetch if the interceptor missed the initial load)
+        await ChatExporter.fetchClaudeConversationApiData();
+
+        const convMatch = window.location.pathname.match(/\/chat\/([0-9a-f-]+)/);
+        const convId = convMatch ? convMatch[1] : null;
+        const hasApiCache = convId && (ChatExporter._claudeApiCache[convId] || []).some(Boolean);
+
+        // Skip DOM clicking for inline panels when API data is available
+        if (!hasApiCache) {
+          await ChatExporter.cacheClaudeInlinePanelVariants();
+        }
+        await ChatExporter.cacheClaudeArtifactFullContent();
+        const freshClaudeData = ChatExporter.extractClaudeChatData(document);
+        if (freshClaudeData && ChatExporter._currentChatData) {
+          ChatExporter._currentChatData = ChatExporter.syncClaudeDataWithExistingIds(
+            ChatExporter._currentChatData,
+            freshClaudeData
+          );
+        }
+      }
+
       // For Grok: fetch all messages (including all threads) via API before exporting
       if (CURRENT_PLATFORM === GROK) {
         const conversationId =
@@ -3135,6 +3869,9 @@
         // console.log("DOM is ready (complete or interactive). Setting timeout for UI controls.");
         setTimeout(async () => {
           // console.log("Timeout elapsed. Adding export and outline controls.");
+          if (CURRENT_PLATFORM === CLAUDE) {
+            await ChatExporter.fetchClaudeConversationApiData();
+          }
           UIManager.addExportControls();
           await UIManager.addOutlineControls(); // Add outline after buttons
           // New: Initiate auto-scroll for Gemini after controls are set up
@@ -3151,6 +3888,9 @@
         window.addEventListener("DOMContentLoaded", () =>
           setTimeout(async () => {
             // console.log("DOMContentLoaded event fired. Adding export and outline controls after timeout.");
+            if (CURRENT_PLATFORM === CLAUDE) {
+              await ChatExporter.fetchClaudeConversationApiData();
+            }
             UIManager.addExportControls();
             await UIManager.addOutlineControls(); // Add outline after buttons
             // New: Initiate auto-scroll for Gemini after controls are set up
