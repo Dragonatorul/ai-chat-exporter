@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT / Claude / Copilot / Gemini / Grok AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.9.0
+// @version      2.9.1
 // @description  Export your ChatGPT, Claude, Copilot, Gemini or Grok chat into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
@@ -21,7 +21,7 @@
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.9.0";
+  const EXPORTER_VERSION = "2.9.1";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const OUTLINE_CONTAINER_ID = "export-outline-container"; // ID for the outline div
   const DOM_READY_TIMEOUT = 1000;
@@ -263,6 +263,7 @@
 
   const GROK = "grok";
   const GROK_HOSTNAMES = ["grok.com", "x.com"];
+  const GROK_TITLE_SUFFIX = " - Grok";
   const GROK_MESSAGE_SELECTOR = ".message-bubble";
   const GROK_HUMAN_MESSAGE_CLASS = "bg-surface-l1";
   const GROK_THINKING_SELECTOR = ".thinking-container";
@@ -2749,6 +2750,93 @@
     _outlineIsCollapsed: false, // State for the outline collapse
     _lastProcessedChatUrl: null, // Track the last processed chat URL for Gemini
     _initialListenersAttached: false, // Track if the URL change handlers are initialized
+    _grokTitleSyncIntervalId: null,
+
+    /**
+     * Keeps Grok project conversation tabs in the form:
+     * "<conversation> - <project> - Grok"
+     */
+    syncGrokProjectConversationTitle(chatData = null) {
+      if (CURRENT_PLATFORM !== GROK) return;
+
+      const isProjectPath = /^\/project\/[^/]+/.test(window.location.pathname);
+      if (!isProjectPath) return;
+
+      const chatId = new URLSearchParams(window.location.search).get("chat");
+
+      const normalize = (text) => (text || "").replace(/\s+/g, " ").trim();
+      const isShortcutText = (text) => /^ctrl\+[a-z0-9]+$/i.test(text);
+      const isValidConversationTitle = (text) => {
+        const normalized = normalize(text);
+        return (
+          normalized.length > 0 &&
+          normalized.length < 220 &&
+          !/^chat$/i.test(normalized) &&
+          !isShortcutText(normalized)
+        );
+      };
+
+      const findConversationTitleFromSidebar = () => {
+        if (!chatId) return "";
+        const chatAnchors = Array.from(
+          document.querySelectorAll(`a[href="/c/${chatId}"]`)
+        );
+        const directAnchorTitle = chatAnchors
+          .map((anchor) => normalize(anchor.textContent))
+          .find((text) => isValidConversationTitle(text));
+        if (directAnchorTitle) return directAnchorTitle;
+
+        for (const anchor of chatAnchors) {
+          const listItem = anchor.closest("li");
+          if (!listItem) continue;
+          const spanTitle = Array.from(listItem.querySelectorAll("span"))
+            .map((span) => normalize(span.textContent))
+            .find((text) => isValidConversationTitle(text));
+          if (spanTitle) return spanTitle;
+        }
+
+        return "";
+      };
+
+      const findProjectTitle = () => {
+        const headerTitle = normalize(document.querySelector("h1")?.textContent || "");
+        if (headerTitle) return headerTitle;
+        return normalize((document.title || "").replace(/\s*-\s*Grok\s*$/i, ""));
+      };
+
+      const projectTitle = findProjectTitle();
+      if (!projectTitle) return;
+
+      const conversationCandidates = [
+        normalize(chatData?._raw_title || ""),
+        normalize(chatData?.title || ""),
+        normalize(ChatExporter._currentChatData?._raw_title || ""),
+        normalize(ChatExporter._currentChatData?.title || ""),
+        normalize(document.querySelector(`#${OUTLINE_TITLE_ID}`)?.textContent || ""),
+        findConversationTitleFromSidebar(),
+        normalize(
+          ChatExporter.extractGrokConversationTitle(document, chatId || null)
+        ),
+      ];
+
+      const conversationTitle = conversationCandidates.find(
+        (text) => isValidConversationTitle(text) && text !== projectTitle
+      );
+      if (!conversationTitle) return;
+
+      const expectedTitle = `${conversationTitle} - ${projectTitle}${GROK_TITLE_SUFFIX}`;
+      if (document.title !== expectedTitle) {
+        document.title = expectedTitle;
+      }
+    },
+
+    ensureGrokProjectTitleSyncLoop() {
+      if (CURRENT_PLATFORM !== GROK) return;
+      if (UIManager._grokTitleSyncIntervalId !== null) return;
+      UIManager._grokTitleSyncIntervalId = window.setInterval(() => {
+        UIManager.syncGrokProjectConversationTitle();
+      }, 1200);
+    },
 
     /**
      * Determines the appropriate width for the alert based on the chat's content area.
@@ -2970,6 +3058,10 @@
 
       // Update stored chat data
       ChatExporter._currentChatData = freshChatData;
+
+      if (CURRENT_PLATFORM === GROK) {
+        UIManager.syncGrokProjectConversationTitle(freshChatData);
+      }
 
       // Hide if no messages after update
       if (
@@ -3748,6 +3840,13 @@
           newUrl
         );
       }
+
+      if (CURRENT_PLATFORM === GROK) {
+        UIManager.syncGrokProjectConversationTitle();
+        setTimeout(() => {
+          UIManager.syncGrokProjectConversationTitle();
+        }, 100);
+      }
     },
 
      /**
@@ -3756,6 +3855,10 @@
       */
      initObserver() {
        const observer = new MutationObserver(async (mutations) => {
+         if (CURRENT_PLATFORM === GROK) {
+           UIManager.syncGrokProjectConversationTitle();
+         }
+
          // Only re-add export controls if they are missing
          if (!document.querySelector(`#${EXPORT_CONTAINER_ID}`)) {
            UIManager.addExportControls();
@@ -3882,6 +3985,9 @@
               UIManager.autoScrollToTop(); // This call will now use the async logic below
             }, AUTOSCROLL_INITIAL_DELAY);
           }
+          if (CURRENT_PLATFORM === GROK) {
+            UIManager.syncGrokProjectConversationTitle();
+          }
         }, DOM_READY_TIMEOUT); // DOM_READY_TIMEOUT is assumed to be defined elsewhere, e.g., 1000ms
       } else {
         // console.log("DOM not yet ready. Adding DOMContentLoaded listener.");
@@ -3901,11 +4007,18 @@
                 UIManager.autoScrollToTop(); // This call will now use the async logic below
               }, AUTOSCROLL_INITIAL_DELAY);
             }
+            if (CURRENT_PLATFORM === GROK) {
+              UIManager.syncGrokProjectConversationTitle();
+            }
           }, DOM_READY_TIMEOUT)
         );
       }
 
       UIManager.initObserver();
+
+      if (CURRENT_PLATFORM === GROK) {
+        UIManager.ensureGrokProjectTitleSyncLoop();
+      }
 
       // To have a uniform look regardless if light or dark theme is used
       injectThemeOverrideStyles();

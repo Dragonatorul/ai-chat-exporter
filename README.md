@@ -1,8 +1,15 @@
-# ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter by RevivalStack (v2.9.0)
+# ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter by RevivalStack (v2.9.1)
 
 **ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from **ChatGPT**, **Claude**, **Copilot**, **Google Gemini**, and **Grok** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
 
 ![ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter](images/chatgpt-gemini-ai-exporter.png)
+
+## What's New in v2.9.1?
+
+This patch release improves Grok project chat title handling.
+
+- **Grok Project Tab Title Sync**: In Grok project conversations, the browser tab title is now kept in the format `<conversation> - <project> - Grok`.
+- **Reliable Updates**: Title sync now runs during outline refresh and periodic checks, so the title stays correct even when Grok updates the tab title dynamically.
 
 ## What's New in v2.9.0?
 
@@ -114,7 +121,7 @@ title: Chat with ChatGPT
 tags: [testchat, docs]
 author: chatgpt
 count: 3
-exporter: 2.9.0
+exporter: 2.9.1
 date: 2025-07-31T17-47-00+0800
 url: https://chatgpt.com/c/...
 ---
