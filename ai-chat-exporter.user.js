@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT / Claude / Copilot / Gemini / Grok AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.9.1
+// @version      2.9.2
 // @description  Export your ChatGPT, Claude, Copilot, Gemini or Grok chat into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
@@ -21,7 +21,7 @@
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.9.1";
+  const EXPORTER_VERSION = "2.9.2";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const OUTLINE_CONTAINER_ID = "export-outline-container"; // ID for the outline div
   const DOM_READY_TIMEOUT = 1000;
@@ -223,7 +223,7 @@
   const CHATGPT = "chatgpt";
   const CHATGPT_HOSTNAMES = ["chat.openai.com", "chatgpt.com"];
   const CHATGPT_TITLE_REPLACE_TEXT = " - ChatGPT";
-  const CHATGPT_ARTICLE_SELECTOR = "article";
+  const CHATGPT_ARTICLE_SELECTOR = "[data-message-author-role]";
   const CHATGPT_HEADER_SELECTOR = "h5";
   const CHATGPT_TEXT_DIV_SELECTOR = "div.text-base";
   const CHATGPT_USER_MESSAGE_INDICATOR = "you said";
@@ -567,26 +567,33 @@
       let chatIndex = 1;
 
       for (const article of articles) {
-        const seenDivs = new Set();
-        const header =
-          article.querySelector(CHATGPT_HEADER_SELECTOR)?.textContent?.trim() ||
-          "";
-        const textDivs = article.querySelectorAll(CHATGPT_TEXT_DIV_SELECTOR);
-        let fullText = "";
-
-        textDivs.forEach((div) => {
-          const key = div.innerText.trim();
-          if (!key || seenDivs.has(key)) return;
-          seenDivs.add(key);
-          fullText += key + "\n";
-        });
-
-        if (!fullText.trim()) continue;
-
-        const isUser = header
-          .toLowerCase()
-          .includes(CHATGPT_USER_MESSAGE_INDICATOR);
+        // New DOM: role is directly on the element via data-message-author-role
+        const role = article.getAttribute("data-message-author-role");
+        const isUser = role === "user";
         const author = isUser ? "user" : "ai";
+
+        // Try new-style content selectors first, fall back to legacy selectors
+        let fullText = "";
+        const markdownEl = article.querySelector(".markdown");
+        const preWrapEl = article.querySelector(".whitespace-pre-wrap");
+        if (markdownEl) {
+          fullText = markdownEl.innerText.trim();
+        } else if (preWrapEl) {
+          fullText = preWrapEl.innerText.trim();
+        } else {
+          // Legacy: div.text-base
+          const seenDivs = new Set();
+          const textDivs = article.querySelectorAll(CHATGPT_TEXT_DIV_SELECTOR);
+          textDivs.forEach((div) => {
+            const key = div.innerText.trim();
+            if (!key || seenDivs.has(key)) return;
+            seenDivs.add(key);
+            fullText += key + "\n";
+          });
+          fullText = fullText.trim();
+        }
+
+        if (!fullText) continue;
 
         // Assign a unique ID to each message. This is crucial for selection.
         const messageId = `${author}-${chatIndex}-${Date.now()}-${Math.random()
